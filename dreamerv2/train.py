@@ -6,6 +6,7 @@ import pathlib
 import re
 import sys
 import warnings
+import pandas as pd
 
 try:
   import rich.traceback
@@ -20,15 +21,18 @@ warnings.filterwarnings('ignore', '.*box bound precision lowered.*')
 sys.path.append(str(pathlib.Path(__file__).parent))
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
+
 import numpy as np
 import ruamel.yaml as yaml
 
 import agent
 import common
+import pdb
 
+global reward_tracker; reward_tracker = pd.DataFrame(columns = ['actual_reward', 'pred_reward'])
 
 def main():
-
+  #pdb.set_trace()
   configs = yaml.safe_load((
       pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
   parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
@@ -44,7 +48,8 @@ def main():
   print('Logdir', logdir)
 
   import tensorflow as tf
-  tf.config.experimental_run_functions_eagerly(not config.jit)
+
+  tf.config.run_functions_eagerly(config.jit)
   message = 'No GPU found. To actually train on CPU remove this assert.'
   assert tf.config.experimental.list_physical_devices('GPU'), message
   for gpu in tf.config.experimental.list_physical_devices('GPU'):
@@ -55,10 +60,11 @@ def main():
     prec.set_policy(prec.Policy('mixed_float16'))
 
   train_replay = common.Replay(logdir / 'train_episodes', **config.replay)
-  eval_replay = common.Replay(logdir / 'eval_episodes', **dict(
-      capacity=config.replay.capacity // 10,
-      minlen=config.dataset.length,
-      maxlen=config.dataset.length))
+  #eval_replay = common.Replay(logdir / 'eval_episodes', **dict(
+  #    capacity=config.replay.capacity // 10,
+  #    minlen=config.dataset.length,
+  #    maxlen=config.dataset.length))
+  eval_replay = common.Replay(logdir/'eval_episodes',**dict(capacity = config.replay.capacity//10, minlen = config.replay.minlen, maxlen = config.replay.maxlen))
   step = common.Counter(train_replay.stats['total_steps'])
   outputs = [
       common.TerminalOutput(),
@@ -91,6 +97,20 @@ def main():
       reward = bool(['noreward', 'reward'].index(task)) or mode == 'eval'
       env = common.Crafter(outdir, reward)
       env = common.OneHotAction(env)
+    elif suite == 'taxi':
+
+
+      sys.path.insert(0,'../..')
+      from visgrid.taxi.taxi_gym_env import TaxiEnv
+
+      env = TaxiEnv(max_steps_per_episode=20)
+      env = common.GymWrapper(env)
+      env = common.ResizeImage(env)
+
+      if hasattr(env.act_space['action'], 'n'):
+       env = common.OneHotAction(env)
+      else:
+       env = common.NormalizeAction(env)
     else:
       raise NotImplementedError(suite)
     env = common.TimeLimit(env, config.time_limit)
@@ -102,6 +122,7 @@ def main():
     print(f'{mode.title()} episode has {length} steps and return {score:.1f}.')
     logger.scalar(f'{mode}_return', score)
     logger.scalar(f'{mode}_length', length)
+    #pdb.set_trace()
     for key, value in ep.items():
       if re.match(config.log_keys_sum, key):
         logger.scalar(f'sum_{mode}_{key}', ep[key].sum())
@@ -109,6 +130,8 @@ def main():
         logger.scalar(f'mean_{mode}_{key}', ep[key].mean())
       if re.match(config.log_keys_max, key):
         logger.scalar(f'max_{mode}_{key}', ep[key].max(0).mean())
+
+
     should = {'train': should_video_train, 'eval': should_video_eval}[mode]
     if should(step):
       for key in config.log_keys_video:
@@ -138,6 +161,7 @@ def main():
   eval_driver.on_episode(lambda ep: per_episode(ep, mode='eval'))
   eval_driver.on_episode(eval_replay.add_episode)
 
+  #pdb.set_trace()
   prefill = max(0, config.prefill - train_replay.stats['total_steps'])
   if prefill:
     print(f'Prefill dataset ({prefill} steps).')
@@ -147,6 +171,7 @@ def main():
     train_driver.reset()
     eval_driver.reset()
 
+  #pdb.set_trace()
   print('Create agent.')
   train_dataset = iter(train_replay.dataset(**config.dataset))
   report_dataset = iter(train_replay.dataset(**config.dataset))
@@ -168,13 +193,31 @@ def main():
     if should_train(step):
       for _ in range(config.train_steps):
         mets = train_agent(next(train_dataset))
-        [metrics[key].append(value) for key, value in mets.items()]
+        #pdb.set_trace()
+        [metrics[key].extend(value) for key, value in mets.items()]
     if should_log(step):
+      #pdb.set_trace()
       for name, values in metrics.items():
-        logger.scalar(name, np.array(values, np.float64).mean())
+
+        pred_rewards = [np.array(value, np.float64) for value in values] if name=='pred_reward' else None
+        actual_reward = [np.array(value, np.float64) for value in values] if name=='actual_reward' else None
+
+
+
+        # pdb.set_trace()
+        for value in values:
+            #pdb.set_trace()
+
+            logger.scalar(name, np.array(value, np.float64).mean())
         metrics[name].clear()
+
+      for actual,pred in zip(actual_reward, pred_reward):
+
+          reward_tracker = reward_tracker.append({'actual_reward':actual, 'pred_reward':pred})
+
       logger.add(agnt.report(next(report_dataset)), prefix='train')
       logger.write(fps=True)
+
   train_driver.on_step(train_step)
 
   while step < config.steps:
@@ -183,8 +226,14 @@ def main():
     logger.add(agnt.report(next(eval_dataset)), prefix='eval')
     eval_driver(eval_policy, episodes=config.eval_eps)
     print('Start training.')
+
     train_driver(train_policy, steps=config.eval_every)
     agnt.save(logdir / 'variables.pkl')
+
+
+
+  reward_tracker.to_csv(logdir/'reward_data.csv')
+
   for env in train_envs + eval_envs:
     try:
       env.close()

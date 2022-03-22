@@ -5,6 +5,7 @@ import pathlib
 import re
 import sys
 import warnings
+import pdb
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger().setLevel('ERROR')
@@ -91,7 +92,7 @@ def train(env, config, outputs=None):
   if prefill:
     print(f'Prefill dataset ({prefill} steps).')
     random_agent = common.RandomAgent(env.act_space)
-    driver(random_agent, steps=prefill, episodes=1)
+    driver(random_agent, steps=prefill, episodes=0)
     driver.reset()
 
   print('Create agent.')
@@ -120,8 +121,10 @@ def train(env, config, outputs=None):
       logger.add(agnt.report(next(dataset)))
       logger.write(fps=True)
   driver.on_step(train_step)
-
+ 
+  print("Training agent.")
   while step < config.steps:
     logger.write()
     driver(policy, steps=config.eval_every)
     agnt.save(logdir / 'variables.pkl')
+    print("completed {} steps".format(config.eval_every))

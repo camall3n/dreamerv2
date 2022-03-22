@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import mixed_precision as prec
-
+import pdb
 import common
 import expl
 
@@ -15,6 +15,7 @@ class Agent(common.Module):
     self.tfstep = tf.Variable(int(self.step), tf.int64)
     self.wm = WorldModel(config, obs_space, self.tfstep)
     self._task_behavior = ActorCritic(config, self.act_space, self.tfstep)
+    self.pred_rewnorm = common.StreamNorm(**self.config.reward_norm)
     if config.expl_behavior == 'greedy':
       self._expl_behavior = self._task_behavior
     else:
@@ -58,14 +59,33 @@ class Agent(common.Module):
   def train(self, data, state=None):
     metrics = {}
     state, outputs, mets = self.wm.train(data, state)
+    
     metrics.update(mets)
     start = outputs['post']
     reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
+
+    #ADDON: predicting reward on exisiting env
+    embed = self.wm.encoder(data)
+    states, _ = self.wm.rssm.observe(embed, data['action'], data['is_first'])
+    feats = self.wm.rssm.get_feat(states)
+
+    pred_reward = self.wm.heads['reward'](feats).mode()
+    #pred_reward, pred_mets = self.pred_rewnorm(pred_reward)
+    #pred_mets = {f'pred_reward_{k}': v for k, v in pred_mets.items()}
+
+    #metrics.update(**pred_mets)
+
     metrics.update(self._task_behavior.train(
         self.wm, start, data['is_terminal'], reward))
     if self.config.expl_behavior != 'greedy':
       mets = self._expl_behavior.train(start, outputs, data)[-1]
       metrics.update({'expl_' + key: value for key, value in mets.items()})
+
+    metrics = {}
+    #pdb.set_trace()
+    metrics['actual_reward'] = data['reward'].reshape((-1,) + self.pred_rewnorm._shape)
+    metrics['pred_reward'] = pred_reward.reshape((-1,) + self.pred_rewnorm._shape)
+
     return state, metrics
 
   @tf.function
@@ -236,6 +256,7 @@ class ActorCritic(common.Module):
     # them to scale the whole sequence.
     with tf.GradientTape() as actor_tape:
       seq = world_model.imagine(self.actor, start, is_terminal, hor)
+      #pdb.set_trace()
       reward = reward_fn(seq)
       seq['reward'], mets1 = self.rewnorm(reward)
       mets1 = {f'reward_{k}': v for k, v in mets1.items()}

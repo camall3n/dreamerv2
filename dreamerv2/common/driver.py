@@ -1,5 +1,5 @@
 import numpy as np
-
+import pdb
 
 class Driver:
 
@@ -29,6 +29,8 @@ class Driver:
   def __call__(self, policy, steps=0, episodes=0):
     step, episode = 0, 0
     while step < steps or episode < episodes:
+      print("step: ", step, " of ", steps)
+      #print("steps: ", steps, "eps: ", episodes)
       obs = {
           i: self._envs[i].reset()
           for i, ob in enumerate(self._obs) if ob is None or ob['is_last']}
@@ -39,7 +41,9 @@ class Driver:
         [fn(tran, worker=i, **self._kwargs) for fn in self._on_resets]
         self._eps[i] = [tran]
       obs = {k: np.stack([o[k] for o in self._obs]) for k in self._obs[0]}
+      #pdb.set_trace()
       actions, self._state = policy(obs, self._state, **self._kwargs)
+      #pdb.set_trace()
       actions = [
           {k: np.array(actions[k][i]) for k in actions}
           for i in range(len(self._envs))]
@@ -47,16 +51,22 @@ class Driver:
       obs = [e.step(a) for e, a in zip(self._envs, actions)]
       obs = [ob() if callable(ob) else ob for ob in obs]
       for i, (act, ob) in enumerate(zip(actions, obs)):
+        #pdb.set_trace()
         tran = {k: self._convert(v) for k, v in {**ob, **act}.items()}
         [fn(tran, worker=i, **self._kwargs) for fn in self._on_steps]
         self._eps[i].append(tran)
         step += 1
+        
+        
         if ob['is_last']:
           ep = self._eps[i]
           ep = {k: self._convert([t[k] for t in ep]) for k in ep[0]}
           [fn(ep, **self._kwargs) for fn in self._on_episodes]
           episode += 1
+          print("episode: ", episode)
       self._obs = obs
+
+   
 
   def _convert(self, value):
     value = np.array(value)

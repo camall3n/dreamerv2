@@ -124,6 +124,9 @@ class StreamNorm(tfutils.Module):
   def __call__(self, inputs):
     metrics = {}
     self.update(inputs)
+    #import pdb; pdb.set_trace()
+    #print('pred reward sum : ', inputs.sum())
+    metrics['sum'] = inputs.sum()
     metrics['mean'] = inputs.mean()
     metrics['std'] = inputs.std()
     outputs = self.transform(inputs)

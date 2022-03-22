@@ -4,7 +4,7 @@ import pathlib
 import time
 
 import numpy as np
-
+import pdb
 
 class Logger:
 
@@ -40,6 +40,8 @@ class Logger:
     fps and self.scalar('fps', self._compute_fps())
     if not self._metrics:
       return
+    #print("metrics output: ", self._metrics)
+    #pdb.set_trace()
     for output in self._outputs:
       output(self._metrics)
     self._metrics.clear()
@@ -108,6 +110,7 @@ class TensorBoardOutput:
     import tensorflow as tf
     self._ensure_writer()
     self._writer.set_as_default()
+    # import pdb; pdb.set_trace()
     for step, name, value in summaries:
       if len(value.shape) == 0:
         tf.summary.scalar('scalars/' + name, value, step)
@@ -118,6 +121,7 @@ class TensorBoardOutput:
       elif len(value.shape) == 4:
         self._video_summary(name, value, step)
     self._writer.flush()
+    # pdb.set_trace()
 
   def _ensure_writer(self):
     if not self._writer:

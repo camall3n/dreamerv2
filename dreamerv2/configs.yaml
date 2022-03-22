@@ -1,29 +1,29 @@
 defaults:
 
   # Train Script
-  logdir: /dev/null
+  logdir: ../../logs_test
   seed: 0
-  task: dmc_walker_walk
+  task: taxi_env
   envs: 1
   envs_parallel: none
   render_size: [64, 64]
   dmc_camera: -1
-  atari_grayscale: True
+  atari_grayscale: False
   time_limit: 0
   action_repeat: 1
-  steps: 1e8
-  log_every: 1e4
-  eval_every: 1e5
+  steps: 100000
+  log_every: 100
+  eval_every: 100
   eval_eps: 1
-  prefill: 10000
+  prefill: 1000
   pretrain: 1
-  train_every: 5
+  train_every: 20
   train_steps: 1
   expl_until: 0
-  replay: {capacity: 2e6, ongoing: False, minlen: 50, maxlen: 50, prioritize_ends: True}
-  dataset: {batch: 16, length: 50}
+  replay: {capacity: 2000, ongoing: False, minlen: 1, maxlen: 50, prioritize_ends: True}
+  dataset: {batch: 20, length: 20}
   log_keys_video: ['image']
-  log_keys_sum: '^$'
+  log_keys_sum: 'reward'
   log_keys_mean: '^$'
   log_keys_max: '^$'
   precision: 16
@@ -40,25 +40,25 @@ defaults:
   grad_heads: [decoder, reward, discount]
   pred_discount: True
   rssm: {ensemble: 1, hidden: 1024, deter: 1024, stoch: 32, discrete: 32, act: elu, norm: none, std_act: sigmoid2, min_std: 0.1}
-  encoder: {mlp_keys: '.*', cnn_keys: '.*', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [4, 4, 4, 4], mlp_layers: [400, 400, 400, 400]}
-  decoder: {mlp_keys: '.*', cnn_keys: '.*', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [5, 5, 6, 6], mlp_layers: [400, 400, 400, 400]}
-  reward_head: {layers: 4, units: 400, act: elu, norm: none, dist: mse}
-  discount_head: {layers: 4, units: 400, act: elu, norm: none, dist: binary}
-  loss_scales: {kl: 1.0, reward: 1.0, discount: 1.0, proprio: 1.0}
+  encoder: {mlp_keys: '$^', cnn_keys: 'image', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [4, 4, 4, 4], mlp_layers: [400, 400, 400, 400]}
+  decoder: {mlp_keys: '$^', cnn_keys: 'image', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [5, 5, 6, 6], mlp_layers: [400, 400, 400, 400]}
+  reward_head: {layers: 4, units: 600, act: elu, norm: none, dist: mse}
+  discount_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary}
+  loss_scales: {kl: 0.1, reward: 1.0, discount: 5.0, proprio: 1.0}
   kl: {free: 0.0, forward: False, balance: 0.8, free_avg: True}
-  model_opt: {opt: adam, lr: 1e-4, eps: 1e-5, clip: 100, wd: 1e-6}
+  model_opt: {opt: adam, lr: 2e-4, eps: 1e-5, clip: 100, wd: 1e-6}
 
   # Actor Critic
   actor: {layers: 4, units: 400, act: elu, norm: none, dist: auto, min_std: 0.1}
   critic: {layers: 4, units: 400, act: elu, norm: none, dist: mse}
-  actor_opt: {opt: adam, lr: 8e-5, eps: 1e-5, clip: 100, wd: 1e-6}
-  critic_opt: {opt: adam, lr: 2e-4, eps: 1e-5, clip: 100, wd: 1e-6}
+  actor_opt: {opt: adam, lr: 4e-5, eps: 1e-5, clip: 100, wd: 1e-6}
+  critic_opt: {opt: adam, lr: 1e-4, eps: 1e-5, clip: 100, wd: 1e-6}
   discount: 0.99
   discount_lambda: 0.95
   imag_horizon: 15
   actor_grad: auto
   actor_grad_mix: 0.1
-  actor_ent: 2e-3
+  actor_ent: 1e-3
   slow_target: True
   slow_target_update: 100
   slow_target_fraction: 1
