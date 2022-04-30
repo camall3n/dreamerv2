@@ -126,6 +126,8 @@ class StreamNorm(tfutils.Module):
     self.update(inputs)
     #import pdb; pdb.set_trace()
     #print('pred reward sum : ', inputs.sum())
+    
+    inputs = tf.cast(inputs, tf.float32)
     metrics['sum'] = inputs.sum()
     metrics['mean'] = inputs.mean()
     metrics['std'] = inputs.std()

@@ -27,9 +27,8 @@ import ruamel.yaml as yaml
 
 import agent
 import common
-import pdb
-
-global reward_tracker; reward_tracker = pd.DataFrame(columns = ['actual_reward', 'pred_reward'])
+import pdb 
+reward_tracker = pd.DataFrame(columns = ['actual_reward', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean'])
 
 def main():
   #pdb.set_trace()
@@ -196,25 +195,32 @@ def main():
         #pdb.set_trace()
         [metrics[key].extend(value) for key, value in mets.items()]
     if should_log(step):
-      #pdb.set_trace()
+      
+      pred_reward_modes = [np.array(value, np.float64) for value in metrics['pred_reward_mode']]
+      pred_reward_means = [np.array(value, np.float64) for value in metrics['pred_reward_mean']]
+      pred_discount_modes = [np.array(value, np.float64) for value in metrics['pred_discount_mode']]
+      pred_discount_means = [np.array(value, np.float64) for value in metrics['pred_discount_mean']]
+      actual_rewards = [np.array(value, np.float64) for value in metrics['actual_reward']]
+
       for name, values in metrics.items():
 
-        pred_rewards = [np.array(value, np.float64) for value in values] if name=='pred_reward' else None
-        actual_reward = [np.array(value, np.float64) for value in values] if name=='actual_reward' else None
+        #pred_rewards = [np.array(value, np.float64) for value in values] if name=='pred_reward' else None
+        #actual_rewards = [np.array(value, np.float64) for value in values] if name=='actual_reward' else None
 
 
 
         # pdb.set_trace()
         for value in values:
-            #pdb.set_trace()
 
             logger.scalar(name, np.array(value, np.float64).mean())
         metrics[name].clear()
-
-      for actual,pred in zip(actual_reward, pred_reward):
-
-          reward_tracker = reward_tracker.append({'actual_reward':actual, 'pred_reward':pred})
-
+      #pdb.set_trace()
+      global reward_tracker
+      for actual, r_mode, r_mean, d_mode, d_mean in zip(actual_rewards, pred_reward_modes, pred_reward_means, pred_discount_modes, pred_discount_means):
+          if actual == 0:
+              pdb.set_trace()
+          reward_tracker = reward_tracker.append({'actual_reward':actual, 'pred_reward_mode':r_mode, 'pred_reward_mean':r_mean, 'pred_discount_mode':d_mode, 'pred_discount_mean':d_mean}, ignore_index = True)
+      print('Rewards Tracked: ', len(reward_tracker))
       logger.add(agnt.report(next(report_dataset)), prefix='train')
       logger.write(fps=True)
 
@@ -231,8 +237,11 @@ def main():
     agnt.save(logdir / 'variables.pkl')
 
 
-
-  reward_tracker.to_csv(logdir/'reward_data.csv')
+    print('Saving reward')
+    reward_tracker.to_csv(logdir/'reward_data.csv')
+    
+    if step == 200:
+      pdb.set_trace()    
 
   for env in train_envs + eval_envs:
     try:

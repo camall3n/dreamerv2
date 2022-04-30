@@ -13,6 +13,8 @@ class Agent(common.Module):
     self.act_space = act_space['action']
     self.step = step
     self.tfstep = tf.Variable(int(self.step), tf.int64)
+    
+    #pdb.set_trace()
     self.wm = WorldModel(config, obs_space, self.tfstep)
     self._task_behavior = ActorCritic(config, self.act_space, self.tfstep)
     self.pred_rewnorm = common.StreamNorm(**self.config.reward_norm)
@@ -57,6 +59,7 @@ class Agent(common.Module):
 
   @tf.function
   def train(self, data, state=None):
+    #pdb.set_trace()
     metrics = {}
     state, outputs, mets = self.wm.train(data, state)
     
@@ -69,7 +72,12 @@ class Agent(common.Module):
     states, _ = self.wm.rssm.observe(embed, data['action'], data['is_first'])
     feats = self.wm.rssm.get_feat(states)
 
+    #pdb.set_trace()
+    #print('Predicted Reward + Discount')
     pred_reward = self.wm.heads['reward'](feats).mode()
+    pred_reward_mean = self.wm.heads['reward'](feats).mean()
+    pred_discount = self.wm.heads['discount'](feats).mode()
+    pred_discount_mean = self.wm.heads['discount'](feats).mean()
     #pred_reward, pred_mets = self.pred_rewnorm(pred_reward)
     #pred_mets = {f'pred_reward_{k}': v for k, v in pred_mets.items()}
 
@@ -84,7 +92,10 @@ class Agent(common.Module):
     metrics = {}
     #pdb.set_trace()
     metrics['actual_reward'] = data['reward'].reshape((-1,) + self.pred_rewnorm._shape)
-    metrics['pred_reward'] = pred_reward.reshape((-1,) + self.pred_rewnorm._shape)
+    metrics['pred_reward_mode'] = pred_reward.reshape((-1,) + self.pred_rewnorm._shape)
+    metrics['pred_reward_mean'] = pred_reward_mean.reshape((-1,) + self.pred_rewnorm._shape)
+    metrics['pred_discount_mode'] = pred_discount.reshape((-1,)+self.pred_rewnorm._shape)
+    metrics['pred_discount_mean'] = pred_discount_mean.reshape((-1,) + self.pred_rewnorm._shape)
 
     return state, metrics
 

@@ -1,7 +1,7 @@
 defaults:
 
   # Train Script
-  logdir: ../../logs_test
+  logdir: ../../logs_dv2_rewards
   seed: 0
   task: taxi_env
   envs: 1
@@ -17,11 +17,11 @@ defaults:
   eval_eps: 1
   prefill: 1000
   pretrain: 1
-  train_every: 20
+  train_every: 25
   train_steps: 1
   expl_until: 0
   replay: {capacity: 2000, ongoing: False, minlen: 1, maxlen: 50, prioritize_ends: True}
-  dataset: {batch: 20, length: 20}
+  dataset: {batch: 30, length: 25}
   log_keys_video: ['image']
   log_keys_sum: 'reward'
   log_keys_mean: '^$'
@@ -44,7 +44,7 @@ defaults:
   decoder: {mlp_keys: '$^', cnn_keys: 'image', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [5, 5, 6, 6], mlp_layers: [400, 400, 400, 400]}
   reward_head: {layers: 4, units: 600, act: elu, norm: none, dist: mse}
   discount_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary}
-  loss_scales: {kl: 0.1, reward: 1.0, discount: 5.0, proprio: 1.0}
+  loss_scales: {kl: 0.1, reward: 2.0, discount: 5.0, proprio: 1.0}
   kl: {free: 0.0, forward: False, balance: 0.8, free_avg: True}
   model_opt: {opt: adam, lr: 2e-4, eps: 1e-5, clip: 100, wd: 1e-6}
 
@@ -53,7 +53,7 @@ defaults:
   critic: {layers: 4, units: 400, act: elu, norm: none, dist: mse}
   actor_opt: {opt: adam, lr: 4e-5, eps: 1e-5, clip: 100, wd: 1e-6}
   critic_opt: {opt: adam, lr: 1e-4, eps: 1e-5, clip: 100, wd: 1e-6}
-  discount: 0.99
+  discount: 0.995
   discount_lambda: 0.95
   imag_horizon: 15
   actor_grad: auto

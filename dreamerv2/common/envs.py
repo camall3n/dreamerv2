@@ -57,6 +57,7 @@ class GymWrapper:
     obs['is_first'] = False
     obs['is_last'] = done
     obs['is_terminal'] = info.get('is_terminal', done)
+    #obs['is_timeout'] = info.get('timeout',done)
     return obs
 
   def reset(self):
@@ -67,6 +68,7 @@ class GymWrapper:
     obs['is_first'] = True
     obs['is_last'] = False
     obs['is_terminal'] = False
+    #obs['is_timeout'] = False
     return obs
 
 

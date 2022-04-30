@@ -34,6 +34,8 @@ class Driver:
       obs = {
           i: self._envs[i].reset()
           for i, ob in enumerate(self._obs) if ob is None or ob['is_last']}
+      
+      #pdb.set_trace()
       for i, ob in obs.items():
         self._obs[i] = ob() if callable(ob) else ob
         act = {k: np.zeros(v.shape) for k, v in self._act_spaces[i].items()}
@@ -49,6 +51,7 @@ class Driver:
           for i in range(len(self._envs))]
       assert len(actions) == len(self._envs)
       obs = [e.step(a) for e, a in zip(self._envs, actions)]
+      #pdb.set_trace()
       obs = [ob() if callable(ob) else ob for ob in obs]
       for i, (act, ob) in enumerate(zip(actions, obs)):
         #pdb.set_trace()
