@@ -1,7 +1,7 @@
 defaults:
 
   # Train Script
-  logdir: ../../logs_dv2_rewards
+  logdir: ../../logs_mse_monte
   seed: 0
   task: taxi_env
   envs: 1
@@ -9,19 +9,19 @@ defaults:
   render_size: [64, 64]
   dmc_camera: -1
   atari_grayscale: False
-  time_limit: 0
+  time_limit: 30000
   action_repeat: 1
-  steps: 100000
-  log_every: 100
-  eval_every: 100
+  steps: 500000
+  log_every: 1000
+  eval_every: 1000
   eval_eps: 1
-  prefill: 1000
+  prefill: 10000
   pretrain: 1
-  train_every: 25
+  train_every: 30
   train_steps: 1
   expl_until: 0
   replay: {capacity: 2000, ongoing: False, minlen: 1, maxlen: 50, prioritize_ends: True}
-  dataset: {batch: 30, length: 25}
+  dataset: {batch: 30, length: 30}
   log_keys_video: ['image']
   log_keys_sum: 'reward'
   log_keys_mean: '^$'
@@ -42,7 +42,7 @@ defaults:
   rssm: {ensemble: 1, hidden: 1024, deter: 1024, stoch: 32, discrete: 32, act: elu, norm: none, std_act: sigmoid2, min_std: 0.1}
   encoder: {mlp_keys: '$^', cnn_keys: 'image', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [4, 4, 4, 4], mlp_layers: [400, 400, 400, 400]}
   decoder: {mlp_keys: '$^', cnn_keys: 'image', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [5, 5, 6, 6], mlp_layers: [400, 400, 400, 400]}
-  reward_head: {layers: 4, units: 600, act: elu, norm: none, dist: mse}
+  reward_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary}
   discount_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary}
   loss_scales: {kl: 0.1, reward: 2.0, discount: 5.0, proprio: 1.0}
   kl: {free: 0.0, forward: False, balance: 0.8, free_avg: True}
@@ -53,7 +53,7 @@ defaults:
   critic: {layers: 4, units: 400, act: elu, norm: none, dist: mse}
   actor_opt: {opt: adam, lr: 4e-5, eps: 1e-5, clip: 100, wd: 1e-6}
   critic_opt: {opt: adam, lr: 1e-4, eps: 1e-5, clip: 100, wd: 1e-6}
-  discount: 0.995
+  discount: 0.98
   discount_lambda: 0.95
   imag_horizon: 15
   actor_grad: auto
@@ -77,6 +77,31 @@ defaults:
   disag_offset: 1
   disag_action_cond: True
   expl_model_loss: kl
+
+monte:
+  task: taxi_env
+  encoder: {mlp_keys: '$^', cnn_keys: 'image'}
+  decoder: {mlp_keys: '$^', cnn_keys: 'image'}
+  time_limit: 27000
+  action_repeat: 4
+  steps: 5e7
+  eval_every: 2.5e5
+  log_every: 1e4
+  prefill: 10000
+  train_every: 30
+  clip_rewards: tanh
+  rssm: {hidden: 600, deter: 600}
+  model_opt.lr: 2e-4
+  actor_opt.lr: 4e-5
+  critic_opt.lr: 1e-4
+  actor_ent: 1e-3
+  discount: 0.99
+  loss_scales.kl: 0.1
+  loss_scales.discount: 5.0
+  reward_head: {layers: 4, units: 600, act: elu, norm: none, dist: mse}
+  discount_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary}
+  dataset: {batch: 30, length: 25}
+
 
 atari:
 
