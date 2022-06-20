@@ -30,10 +30,10 @@ import common
 import pdb 
 
 #pdb.set_trace()
-if os.path.exists('reward_data_long.csv'):
-    reward_tracker = pd.read_csv('reward_data_long.csv')
+if os.path.exists('reward_data.csv'):
+    reward_tracker = pd.read_csv('reward_data.csv')
 else:
-    reward_tracker = pd.DataFrame(columns = ['actual_reward', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean'])
+    reward_tracker = pd.DataFrame(columns = ['actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean','taxi_row', 'taxi_col', 'p_row', 'p_col','in_taxi'])
 
 def main():
   #pdb.set_trace()
@@ -107,7 +107,7 @@ def main():
       sys.path.insert(0,'../..')
       from visgrid.taxi.taxi_gym_env import TaxiEnv
 
-      env = TaxiEnv(max_steps_per_episode=700)
+      env = TaxiEnv(max_steps_per_episode=20)
       env = common.GymWrapper(env)
       env = common.ResizeImage(env)
 
@@ -234,7 +234,7 @@ def main():
           reward_tracker = reward_tracker.append({'actual_reward':actual, 'is_timeout':is_t, 'pred_reward_mode':r_mode, 'pred_reward_mean':r_mean, 'pred_discount_mode':d_mode, 'pred_discount_mean':d_mean,'taxi_row':t_row, 'taxi_col':t_col, 'p_row':p_row, 'p_col':p_col,'in_taxi':in_t}, ignore_index = True)
       #pdb.set_trace()
       print('Rewards Tracked: ', len(reward_tracker))
-      reward_tracker.to_csv('reward_data_long.csv')
+      reward_tracker.to_csv('reward_data.csv')
       logger.add(agnt.report(next(report_dataset)), prefix='train')
       logger.write(fps=True)
 
