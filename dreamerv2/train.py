@@ -7,6 +7,7 @@ import re
 import sys
 import warnings
 import pandas as pd
+import argparse
 
 try:
   import rich.traceback
@@ -45,7 +46,13 @@ def main():
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
     config = config.update(configs[name])
-  config = common.Flags(config).parse(remaining)
+  
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--num_steps',type=int)
+  args = parser.parse_args(remaining)
+
+  config['steps'] = args.num_steps
+  # config = common.Flags(config).parse(remaining)
   
   #pdb.set_trace()
 
