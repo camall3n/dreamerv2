@@ -57,18 +57,23 @@ class GymWrapper:
     obs['is_first'] = False
     obs['is_last'] = done
     obs['is_terminal'] = info.get('is_terminal', done)
-    #obs['is_timeout'] = info.get('timeout',done)
+    obs['is_timeout'] = info.get('timeout',done)
+    obs['taxi_pos'] = (info.get('taxi_row',None), info.get('taxi_col',None))
+    obs['p_pos'] = (info.get('p1_row',None), info.get('p1_col',None), info.get('p1_in_taxi',None)) 
     return obs
 
   def reset(self):
-    obs = self._env.reset()
+    obs,info = self._env.reset()
+    
     if not self._obs_is_dict:
       obs = {self._obs_key: obs}
     obs['reward'] = 0.0
     obs['is_first'] = True
     obs['is_last'] = False
     obs['is_terminal'] = False
-    #obs['is_timeout'] = False
+    obs['is_timeout'] = False
+    obs['taxi_pos'] = (info.get('taxi_row',None), info.get('taxi_col',None))
+    obs['p_pos'] = (info.get('p1_row',None), info.get('p1_col',None), info.get('p1_in_taxi',None))
     return obs
 
 

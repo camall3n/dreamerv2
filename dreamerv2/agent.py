@@ -92,6 +92,14 @@ class Agent(common.Module):
     metrics = {}
     #pdb.set_trace()
     metrics['actual_reward'] = data['reward'].reshape((-1,) + self.pred_rewnorm._shape)
+    
+    metrics['is_timeout'] = data['is_timeout'].reshape((-1,) + self.pred_rewnorm._shape)
+    metrics['taxi_row'] = data['taxi_pos'][:,:,0].reshape((-1,))
+    metrics['taxi_col'] = data['taxi_pos'][:,:,1].reshape((-1,))
+    metrics['p_row'] = data['p_pos'][:,:,0].reshape((-1,))
+    metrics['p_col'] = data['p_pos'][:,:,1].reshape((-1,))
+    metrics['p_in_taxi'] = data['p_pos'][:,:,2].reshape((-1,))    
+
     metrics['pred_reward_mode'] = pred_reward.reshape((-1,) + self.pred_rewnorm._shape)
     metrics['pred_reward_mean'] = pred_reward_mean.reshape((-1,) + self.pred_rewnorm._shape)
     metrics['pred_discount_mode'] = pred_discount.reshape((-1,)+self.pred_rewnorm._shape)

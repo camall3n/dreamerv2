@@ -1,7 +1,7 @@
 defaults:
 
   # Train Script
-  logdir: ../../logs_mse_monte
+  logdir: ../../logs_mse_monte_75p
   seed: 0
   task: taxi_env
   envs: 1
@@ -87,7 +87,7 @@ monte:
   steps: 5e7
   eval_every: 2.5e5
   log_every: 1e4
-  prefill: 10000
+  prefill: 50000
   train_every: 30
   clip_rewards: tanh
   rssm: {hidden: 600, deter: 600}

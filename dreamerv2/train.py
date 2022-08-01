@@ -27,10 +27,10 @@ import ruamel.yaml as yaml
 
 import agent
 import common
-import pdb 
+import pdb
 
 #pdb.set_trace()
-if os.path.exists('reward_data.csv'):
+if os.path.exists('./reward_data.csv'):
     reward_tracker = pd.read_csv('reward_data.csv')
 else:
     reward_tracker = pd.DataFrame(columns = ['actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean','taxi_row', 'taxi_col', 'p_row', 'p_col','in_taxi'])
@@ -40,10 +40,14 @@ def main():
   configs = yaml.safe_load((
       pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
   parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
+  pdb.set_trace()
+
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
     config = config.update(configs[name])
   config = common.Flags(config).parse(remaining)
+  
+  #pdb.set_trace()
 
   logdir = pathlib.Path(config.logdir).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)
@@ -198,22 +202,22 @@ def main():
       for _ in range(config.train_steps):
         mets = train_agent(next(train_dataset))
         [metrics[key].extend(value) for key, value in mets.items()]
-    
+
     #pdb.set_trace()
     if should_log(step):
-      
-      pred_reward_modes = [np.array(value, np.float64) for value in metrics['pred_reward_mode']]
-      pred_reward_means = [np.array(value, np.float64) for value in metrics['pred_reward_mean']]
-      pred_discount_modes = [np.array(value, np.float64) for value in metrics['pred_discount_mode']]
-      pred_discount_means = [np.array(value, np.float64) for value in metrics['pred_discount_mean']]
-      actual_rewards = [np.array(value, np.float64) for value in metrics['actual_reward']]
-      
-      is_timeout = [np.array(value, np.int8) for value in metrics['is_timeout']] 
-      taxi_rows = [np.array(value, np.int8) for value in metrics['taxi_row']]
-      taxi_cols = [np.array(value, np.int8) for value in metrics['taxi_col']]
-      p_rows = [np.array(value, np.int8) for value in metrics['p_row']]
-      p_cols = [np.array(value, np.int8) for value in metrics['p_col']]
-      in_taxi = [np.array(value, np.int8) for value in metrics['p_in_taxi']]      
+
+      pred_reward_modes = list(map(lambda value: np.array(value, np.float64), metrics['pred_reward_mode']))
+      pred_reward_means = list(map(lambda value: np.array(value, np.float64), metrics['pred_reward_mean']))
+      pred_discount_modes = list(map(lambda value: np.array(value, np.float64), metrics['pred_discount_mode']))
+      pred_discount_means = list(map(lambda value: np.array(value, np.float64), metrics['pred_discount_mean']))
+      actual_rewards = list(map(lambda value: np.array(value, np.float64), metrics['actual_reward']))
+
+      is_timeout = list(map(lambda value: np.array(value, np.int8),  metrics['is_timeout']))
+      taxi_rows = list(map(lambda value: np.array(value, np.int8), metrics['taxi_row']))
+      taxi_cols = list(map(lambda value: np.array(value, np.int8), metrics['taxi_col']))
+      p_rows = list(map(lambda value: np.array(value, np.int8), metrics['p_row']))
+      p_cols = list(map(lambda value: np.array(value, np.int8), metrics['p_col']))
+      in_taxi = list(map(lambda value: np.array(value, np.int8), metrics['p_in_taxi']))
 
       for name, values in metrics.items():
 
@@ -229,12 +233,24 @@ def main():
         metrics[name].clear()
       #pdb.set_trace()
       global reward_tracker
-      for actual, is_t, r_mode, r_mean, d_mode, d_mean, t_row, t_col, p_row, p_col, in_t in zip(actual_rewards, is_timeout, pred_reward_modes, pred_reward_means, pred_discount_modes, pred_discount_means,taxi_rows, taxi_cols, p_rows, p_cols, in_taxi):
-          
-          reward_tracker = reward_tracker.append({'actual_reward':actual, 'is_timeout':is_t, 'pred_reward_mode':r_mode, 'pred_reward_mean':r_mean, 'pred_discount_mode':d_mode, 'pred_discount_mean':d_mean,'taxi_row':t_row, 'taxi_col':t_col, 'p_row':p_row, 'p_col':p_col,'in_taxi':in_t}, ignore_index = True)
-      #pdb.set_trace()
+
+      step_rewards = pd.DataFrame(columns = ['actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean','taxi_row', 'taxi_col', 'p_row', 'p_col','in_taxi'])
+      step_rewards['actual_reward'] = actual_rewards
+      step_rewards['is_timeout'] = is_timeout
+      step_rewards['pred_reward_mode'] = pred_reward_modes
+      step_rewards['pred_reward_mean'] = pred_reward_means
+      step_rewards['pred_discount_mode'] = pred_discount_modes
+      step_rewards['pred_discount_mean'] = pred_discount_means
+      step_rewards['taxi_row'] = taxi_rows
+      step_rewards['taxi_col'] = taxi_cols
+      step_rewards['p_row'] = p_rows
+      step_rewards['p_col'] = p_cols
+      step_rewards['in_taxi'] = in_taxi
+
+      reward_tracker = reward_tracker.append(step_rewards, ignore_index=True)
+
       print('Rewards Tracked: ', len(reward_tracker))
-      reward_tracker.to_csv('reward_data.csv')
+      reward_tracker.to_csv('reward_data.csv', index=False)
       logger.add(agnt.report(next(report_dataset)), prefix='train')
       logger.write(fps=True)
 
@@ -244,6 +260,8 @@ def main():
     logger.write()
     print('Start evaluation.')
     logger.add(agnt.report(next(eval_dataset)), prefix='eval')
+    
+    #pdb.set_trace()
     eval_driver(eval_policy, episodes=config.eval_eps)
     print('Start training.')
 
@@ -254,8 +272,8 @@ def main():
     print('Saving reward')
     #pdb.set_trace()
     #reward_tracker.to_csv(logdir/'reward_data.csv')
-    
-       
+
+
 
   for env in train_envs + eval_envs:
     try:
