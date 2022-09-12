@@ -50,30 +50,28 @@ class GymWrapper:
   def step(self, action):
     if not self._act_is_dict:
       action = action[self._act_key]
-    obs, reward, done, info = self._env.step(action)
-    if not self._obs_is_dict:
-      obs = {self._obs_key: obs}
-    obs['reward'] = float(reward)
+    obs, reward, terminal, truncated, info = self._env.step(action)
+    obs = self._update_obs(obs, info, reward, terminal, truncated)
     obs['is_first'] = False
-    obs['is_last'] = done
-    obs['is_terminal'] = info.get('is_terminal', done)
-    obs['is_timeout'] = info.get('timeout',done)
-    obs['taxi_pos'] = (info.get('taxi_row',None), info.get('taxi_col',None))
-    obs['p_pos'] = (info.get('p1_row',None), info.get('p1_col',None), info.get('p1_in_taxi',None)) 
     return obs
 
   def reset(self):
-    obs,info = self._env.reset()
-    
+    obs, info = self._env.reset()
+    obs = self._update_obs(obs, info)
+    obs['is_first'] = True
+    return obs
+
+  def _update_obs(self, obs, info: dict, reward: float = 0.0, terminal: bool=False, truncated: bool=False):
     if not self._obs_is_dict:
       obs = {self._obs_key: obs}
-    obs['reward'] = 0.0
-    obs['is_first'] = True
-    obs['is_last'] = False
-    obs['is_terminal'] = False
-    obs['is_timeout'] = False
-    obs['taxi_pos'] = (info.get('taxi_row',None), info.get('taxi_col',None))
-    obs['p_pos'] = (info.get('p1_row',None), info.get('p1_col',None), info.get('p1_in_taxi',None))
+    obs['reward'] = float(reward)
+    obs['is_last'] = terminal or truncated
+    obs['is_terminal'] = terminal
+    obs['is_timeout'] = truncated
+    state = info.get('state', None)
+    if state is not None:
+      obs['taxi_pos'] = state[:2]
+      obs['p_pos'] = state[2:]
     return obs
 
 

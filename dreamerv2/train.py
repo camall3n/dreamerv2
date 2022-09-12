@@ -9,6 +9,9 @@ import warnings
 import pandas as pd
 import argparse
 
+from visgrid.wrappers.transforms import NoiseWrapper, ClipWrapper, TransformWrapper
+from gym.wrappers.time_limit import TimeLimit
+
 try:
   import rich.traceback
   rich.traceback.install()
@@ -22,9 +25,15 @@ warnings.filterwarnings('ignore', '.*box bound precision lowered.*')
 sys.path.append(str(pathlib.Path(__file__).parent))
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
-
 import numpy as np
 import ruamel.yaml as yaml
+from tensorflow import keras
+
+# import tensorflow as tf
+# tf.config.run_functions_eagerly(True)
+# tf.debugging.experimental.enable_dump_debug_info("/tmp/tfdbg2_logdir",
+#                                                  tensor_debug_mode="FULL_HEALTH",
+#                                                  circular_buffer_size=-1)
 
 import agent
 import common
@@ -48,7 +57,7 @@ def main():
     config = config.update(configs[name])
   
   parser = argparse.ArgumentParser()
-  parser.add_argument('--num_steps',type=int)
+  parser.add_argument('--num_steps', type=int, required=True)
   args = parser.parse_args(remaining)
 
   config.update({'steps':args.num_steps})
@@ -71,8 +80,8 @@ def main():
     tf.config.experimental.set_memory_growth(gpu, True)
   assert config.precision in (16, 32), config.precision
   if config.precision == 16:
-    from tensorflow.keras.mixed_precision import experimental as prec
-    prec.set_policy(prec.Policy('mixed_float16'))
+    from keras import mixed_precision as prec
+    prec.set_global_policy(prec.Policy('mixed_float16'))
 
   train_replay = common.Replay(logdir / 'train_episodes', **config.replay)
   #eval_replay = common.Replay(logdir / 'eval_episodes', **dict(
@@ -114,11 +123,18 @@ def main():
       env = common.OneHotAction(env)
     elif suite == 'taxi':
 
-
-      sys.path.insert(0,'../..')
-      from visgrid.taxi.taxi_gym_env import TaxiEnv
-
-      env = TaxiEnv(max_steps_per_episode=20)
+      from visgrid.envs import TaxiEnv
+      env = TaxiEnv(size=5,
+                    n_passengers=1,
+                    exploring_starts=True,
+                    terminate_on_goal=True,
+                    depot_dropoff_only=False,
+                    should_render=True,
+                    dimensions=TaxiEnv.dimensions_5x5_to_64x64)
+      env = NoiseWrapper(env, sigma=0.01)
+      env = ClipWrapper(env, 0.0, 1.0)
+      env = TransformWrapper(env, lambda x: x - 0.5)
+      env = TimeLimit(env, max_episode_steps=40)
       env = common.GymWrapper(env)
       env = common.ResizeImage(env)
 
