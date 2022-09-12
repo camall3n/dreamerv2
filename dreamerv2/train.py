@@ -41,7 +41,7 @@ def main():
   configs = yaml.safe_load((
       pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
   parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
-  pdb.set_trace()
+  #pdb.set_trace()
 
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
@@ -51,7 +51,7 @@ def main():
   parser.add_argument('--num_steps',type=int)
   args = parser.parse_args(remaining)
 
-  config['steps'] = args.num_steps
+  config.update({'steps':args.num_steps})
   # config = common.Flags(config).parse(remaining)
   
   #pdb.set_trace()

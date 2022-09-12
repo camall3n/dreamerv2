@@ -1,7 +1,7 @@
 defaults:
 
   # Train Script
-  logdir: ../../logs_mse_monte_75p
+  logdir: ../../logs_mse_monte_75p_binary
   seed: 0
   task: taxi_env
   envs: 1
@@ -98,7 +98,7 @@ monte:
   discount: 0.99
   loss_scales.kl: 0.1
   loss_scales.discount: 5.0
-  reward_head: {layers: 4, units: 600, act: elu, norm: none, dist: mse}
+  reward_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary} 
   discount_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary}
   dataset: {batch: 30, length: 25}
 
