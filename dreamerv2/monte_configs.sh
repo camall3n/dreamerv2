@@ -12,9 +12,5 @@
 #SBATCH -o monte_configs.out
 #SBATCH -e monte_configs.err
 
-
-#source /users/ssunda11/.conda/envs
-#source activate dreamer_env
-eval "$(conda shell.bash hook)"
-conda activate dreamer_env
-python3 train.py --configs monte --num_steps 25000000
+source venv/bin/activate
+python3.9 train.py --configs monte --num_steps 1000000
