@@ -59,7 +59,7 @@ class Agent(common.Module):
 
   @tf.function
   def train(self, data, state=None):
-    #pdb.set_trace()
+    
     metrics = {}
     state, outputs, mets = self.wm.train(data, state)
     
@@ -72,40 +72,40 @@ class Agent(common.Module):
     states, _ = self.wm.rssm.observe(embed, data['action'], data['is_first'])
     feats = self.wm.rssm.get_feat(states)
 
-    #pdb.set_trace()
-    #print('Predicted Reward + Discount')
+    #original DV2 metrics update
     pred_reward = self.wm.heads['reward'](feats).mode()
     pred_reward_mean = self.wm.heads['reward'](feats).mean()
     pred_discount = self.wm.heads['discount'](feats).mode()
     pred_discount_mean = self.wm.heads['discount'](feats).mean()
-    #pred_reward, pred_mets = self.pred_rewnorm(pred_reward)
-    #pred_mets = {f'pred_reward_{k}': v for k, v in pred_mets.items()}
 
-    #metrics.update(**pred_mets)
 
     metrics.update(self._task_behavior.train(
         self.wm, start, data['is_terminal'], reward))
+    
     if self.config.expl_behavior != 'greedy':
       mets = self._expl_behavior.train(start, outputs, data)[-1]
       metrics.update({'expl_' + key: value for key, value in mets.items()})
 
-    metrics = {}
-    #pdb.set_trace()
-    metrics['actual_reward'] = data['reward'].reshape((-1,) + self.pred_rewnorm._shape)
+
+    #ADD ON: creating rolling metrics to get reward/state information per step
+    metrics_rolled = {}
     
-    metrics['is_timeout'] = data['is_timeout'].reshape((-1,) + self.pred_rewnorm._shape)
-    metrics['taxi_row'] = data['taxi_pos'][:,:,0].reshape((-1,))
-    metrics['taxi_col'] = data['taxi_pos'][:,:,1].reshape((-1,))
-    metrics['p_row'] = data['p_pos'][:,:,0].reshape((-1,))
-    metrics['p_col'] = data['p_pos'][:,:,1].reshape((-1,))
-    metrics['p_in_taxi'] = data['p_pos'][:,:,2].reshape((-1,))    
+    metrics_rolled['actual_reward'] = data['reward'].reshape((-1,) + self.pred_rewnorm._shape)
+    
+    metrics_rolled['is_timeout'] = data['is_timeout'].reshape((-1,) + self.pred_rewnorm._shape)
+    metrics_rolled['taxi_row'] = data['taxi_pos'][:,:,0].reshape((-1,))
+    metrics_rolled['taxi_col'] = data['taxi_pos'][:,:,1].reshape((-1,))
+    metrics_rolled['p_row'] = data['p_pos'][:,:,0].reshape((-1,))
+    metrics_rolled['p_col'] = data['p_pos'][:,:,1].reshape((-1,))
+    metrics_rolled['p_in_taxi'] = data['p_pos'][:,:,2].reshape((-1,))    
 
-    metrics['pred_reward_mode'] = pred_reward.reshape((-1,) + self.pred_rewnorm._shape)
-    metrics['pred_reward_mean'] = pred_reward_mean.reshape((-1,) + self.pred_rewnorm._shape)
-    metrics['pred_discount_mode'] = pred_discount.reshape((-1,)+self.pred_rewnorm._shape)
-    metrics['pred_discount_mean'] = pred_discount_mean.reshape((-1,) + self.pred_rewnorm._shape)
+    metrics_rolled['pred_reward_mode'] = pred_reward.reshape((-1,) + self.pred_rewnorm._shape)
+    metrics_rolled['pred_reward_mean'] = pred_reward_mean.reshape((-1,) + self.pred_rewnorm._shape)
+    metrics_rolled['pred_discount_mode'] = pred_discount.reshape((-1,)+self.pred_rewnorm._shape)
+    metrics_rolled['pred_discount_mean'] = pred_discount_mean.reshape((-1,) + self.pred_rewnorm._shape)
 
-    return state, metrics
+    #return state information + summary metrics and rolled metrics (per step)
+    return state, metrics, metrics_rolled
 
   @tf.function
   def report(self, data):

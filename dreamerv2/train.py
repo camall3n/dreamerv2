@@ -39,18 +39,15 @@ import agent
 import common
 import pdb
 
-#pdb.set_trace()
-if os.path.exists('./reward_data.csv'):
-    reward_tracker = pd.read_csv('reward_data.csv')
-else:
-    reward_tracker = pd.DataFrame(columns = ['actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean','taxi_row', 'taxi_col', 'p_row', 'p_col','in_taxi'])
+#ADDON: reward tracker variable: to be populated CSV file tracking per-step metrics
+reward_tracker = None
 
 def main():
-  #pdb.set_trace()
+  
   configs = yaml.safe_load((
       pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
   parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
-  #pdb.set_trace()
+  
 
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
@@ -63,7 +60,14 @@ def main():
   config.update({'steps':args.num_steps})
   # config = common.Flags(config).parse(remaining)
   
-  #pdb.set_trace()
+  REWARD_SAVE_PATH = os.path.join(config.logdir, 'reward_data.csv')
+  global reward_tracker
+
+  if os.path.exists(REWARD_SAVE_PATH):
+    reward_tracker = pd.read_csv(REWARD_SAVE_PATH)
+  else:
+    reward_tracker = pd.DataFrame(columns = ['actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean','taxi_row', 'taxi_col', 'p_row', 'p_col','in_taxi'])
+
 
   logdir = pathlib.Path(config.logdir).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)
@@ -84,11 +88,14 @@ def main():
     prec.set_global_policy(prec.Policy('mixed_float16'))
 
   train_replay = common.Replay(logdir / 'train_episodes', **config.replay)
+  
   #eval_replay = common.Replay(logdir / 'eval_episodes', **dict(
   #    capacity=config.replay.capacity // 10,
   #    minlen=config.dataset.length,
   #    maxlen=config.dataset.length))
-  eval_replay = common.Replay(logdir/'eval_episodes',**dict(capacity = config.replay.capacity//10, minlen = config.replay.minlen, maxlen = config.replay.maxlen))
+
+  eval_replay = common.Replay(logdir / 'eval_episodes',**dict(capacity = config.replay.capacity//10, minlen = config.replay.minlen, maxlen = config.replay.maxlen))
+
   step = common.Counter(train_replay.stats['total_steps'])
   outputs = [
       common.TerminalOutput(),
@@ -96,7 +103,9 @@ def main():
       common.TensorBoardOutput(logdir),
   ]
   logger = common.Logger(step, outputs, multiplier=config.action_repeat)
+
   metrics = collections.defaultdict(list)
+  metrics_rolled = collections.defaultdict(list)
 
   should_train = common.Every(config.train_every)
   should_log = common.Every(config.log_every)
@@ -221,43 +230,42 @@ def main():
   eval_policy = lambda *args: agnt.policy(*args, mode='eval')
 
   def train_step(tran, worker):
+
     if should_train(step):
       for _ in range(config.train_steps):
-        mets = train_agent(next(train_dataset))
-        [metrics[key].extend(value) for key, value in mets.items()]
+        mets, mets_rolled = train_agent(next(train_dataset))
+        [metrics[key].append(value) for key, value in mets.items()]
 
-    #pdb.set_trace()
+        #ADD ON: logging rolled metrics per step
+        [metrics_rolled[key].extend(value) for key, value in mets_rolled.items()]
+
+    
     if should_log(step):
+      
+      #ADD ON: extracting per-step metrics from metrics_rolled
+      pred_reward_modes = list(map(lambda value: np.array(value, np.float64), metrics_rolled['pred_reward_mode']))
+      pred_reward_means = list(map(lambda value: np.array(value, np.float64), metrics_rolled['pred_reward_mean']))
+      pred_discount_modes = list(map(lambda value: np.array(value, np.float64), metrics_rolled['pred_discount_mode']))
+      pred_discount_means = list(map(lambda value: np.array(value, np.float64), metrics_rolled['pred_discount_mean']))
+      actual_rewards = list(map(lambda value: np.array(value, np.float64), metrics_rolled['actual_reward']))
 
-      pred_reward_modes = list(map(lambda value: np.array(value, np.float64), metrics['pred_reward_mode']))
-      pred_reward_means = list(map(lambda value: np.array(value, np.float64), metrics['pred_reward_mean']))
-      pred_discount_modes = list(map(lambda value: np.array(value, np.float64), metrics['pred_discount_mode']))
-      pred_discount_means = list(map(lambda value: np.array(value, np.float64), metrics['pred_discount_mean']))
-      actual_rewards = list(map(lambda value: np.array(value, np.float64), metrics['actual_reward']))
+      is_timeout = list(map(lambda value: np.array(value, np.int8),  metrics_rolled['is_timeout']))
+      taxi_rows = list(map(lambda value: np.array(value, np.int8), metrics_rolled['taxi_row']))
+      taxi_cols = list(map(lambda value: np.array(value, np.int8), metrics_rolled['taxi_col']))
+      p_rows = list(map(lambda value: np.array(value, np.int8), metrics_rolled['p_row']))
+      p_cols = list(map(lambda value: np.array(value, np.int8), metrics_rolled['p_col']))
+      in_taxi = list(map(lambda value: np.array(value, np.int8), metrics_rolled['p_in_taxi']))
 
-      is_timeout = list(map(lambda value: np.array(value, np.int8),  metrics['is_timeout']))
-      taxi_rows = list(map(lambda value: np.array(value, np.int8), metrics['taxi_row']))
-      taxi_cols = list(map(lambda value: np.array(value, np.int8), metrics['taxi_col']))
-      p_rows = list(map(lambda value: np.array(value, np.int8), metrics['p_row']))
-      p_cols = list(map(lambda value: np.array(value, np.int8), metrics['p_col']))
-      in_taxi = list(map(lambda value: np.array(value, np.int8), metrics['p_in_taxi']))
+      for name, values in metrics_rolled.items():
+        # for value in values:
 
-      for name, values in metrics.items():
+        #   logger.scalar(name, np.array(value, np.float64).mean())
 
-        #pred_rewards = [np.array(value, np.float64) for value in values] if name=='pred_reward' else None
-        #actual_rewards = [np.array(value, np.float64) for value in values] if name=='actual_reward' else None
-
-
-
-        # pdb.set_trace()
-        for value in values:
-
-            logger.scalar(name, np.array(value, np.float64).mean())
-        metrics[name].clear()
-      #pdb.set_trace()
+        metrics_rolled[name].clear()
+      
       global reward_tracker
 
-      step_rewards = pd.DataFrame(columns = ['actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean','taxi_row', 'taxi_col', 'p_row', 'p_col','in_taxi'])
+      step_rewards = pd.DataFrame(columns = reward_tracker.columns)
       step_rewards['actual_reward'] = actual_rewards
       step_rewards['is_timeout'] = is_timeout
       step_rewards['pred_reward_mode'] = pred_reward_modes
@@ -273,9 +281,16 @@ def main():
       reward_tracker = reward_tracker.append(step_rewards, ignore_index=True)
 
       print('Rewards Tracked: ', len(reward_tracker))
-      reward_tracker.to_csv('reward_data.csv', index=False)
+      reward_tracker.to_csv(REWARD_SAVE_PATH, index=False)
+
+      #original DV2 metrics extraction and logging
+      for name, values in metrics.items():
+        logger.scalar(name, np.array(values, np.float64).mean())
+        metrics[name].clear()
+
       logger.add(agnt.report(next(report_dataset)), prefix='train')
       logger.write(fps=True)
+
 
   train_driver.on_step(train_step)
 
@@ -284,17 +299,13 @@ def main():
     print('Start evaluation.')
     logger.add(agnt.report(next(eval_dataset)), prefix='eval')
     
-    #pdb.set_trace()
     eval_driver(eval_policy, episodes=config.eval_eps)
     print('Start training.')
 
     train_driver(train_policy, steps=config.eval_every)
     agnt.save(logdir / 'variables.pkl')
 
-
     print('Saving reward')
-    #pdb.set_trace()
-    #reward_tracker.to_csv(logdir/'reward_data.csv')
 
 
 

@@ -1,7 +1,7 @@
 defaults:
 
   # Train Script
-  logdir: ../../logs_mse_monte_75p_binary
+  logdir: ../logs/taxi_binaryhead_10k
   seed: 0
   task: taxi_env
   envs: 1
@@ -11,7 +11,7 @@ defaults:
   atari_grayscale: False
   time_limit: 30000
   action_repeat: 1
-  steps: 500000
+  steps: 10000
   log_every: 1000
   eval_every: 1000
   eval_eps: 1
@@ -84,7 +84,7 @@ monte:
   decoder: {mlp_keys: '$^', cnn_keys: 'image'}
   time_limit: 27000
   action_repeat: 4
-  steps: 5e7
+  steps: 1e6
   eval_every: 2.5e5
   log_every: 1e4
   prefill: 50000
