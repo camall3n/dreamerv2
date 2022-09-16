@@ -43,6 +43,7 @@ import pdb
 
 #ADDON: reward tracker variable: to be populated CSV file tracking per-step metrics
 reward_tracker = None
+step_reward_tracker = None
 
 def main():
 
@@ -59,7 +60,26 @@ def main():
 
     config.update({'steps': args.num_steps})
     # config = common.Flags(config).parse(remaining)
-    REWARD_SAVE_PATH = os.path.join(config.logdir, 'reward_data.json')
+
+    BATCH_REWARD_SAVE_PATH = os.path.join(config.logdir, 'batch_reward_data.csv')
+    STEP_REWARD_SAVE_PATH = os.path.join(config.logdir, 'step_reward_data.csv')
+
+    global reward_tracker
+    global step_reward_tracker
+
+    if os.path.exists(BATCH_REWARD_SAVE_PATH):
+        reward_tracker = pd.read_csv(BATCH_REWARD_SAVE_PATH)
+    else:
+        reward_tracker = pd.DataFrame(columns = ['actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean','taxi_row', 'taxi_col', 'p_row', 'p_col','in_taxi'])
+    
+    if os.path.exists(STEP_REWARD_SAVE_PATH):
+        step_reward_tracker = pd.read_csv(STEP_REWARD_SAVE_PATH)
+    else:
+        step_reward_tracker = pd.DataFrame(columns = ['single_step',
+            'single_actual_reward', 'single_actual_terminal', 'single_actual_timeout','single_pred_reward_mean','single_pred_reward_mode','single_pred_discount_mean',
+            'single_pred_discount_mode',
+            'taxi_row','taxi_col','p_row','p_col','in_taxi'])
+
 
     logdir = pathlib.Path(config.logdir).expanduser()
     logdir.mkdir(parents=True, exist_ok=True)
@@ -225,9 +245,12 @@ def main():
     recent_history = []
 
     def train_step(tran, worker):
+
         pdb.set_trace()
         recent_history.append(tran)
+
         if len(recent_history) > config.dataset.length:
+            step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
             recent_history.pop(0)
 
         trajectory = {
@@ -260,12 +283,12 @@ def main():
             'taxi_col': tran['taxi_pos'][1],
             'p_row': tran['p_pos'][0],
             'p_col': tran['p_pos'][1],
-            'in_taxi': tran['p_pos'][2],
+            'in_taxi': tran['p_pos'][2]
         }
 
-        with open(REWARD_SAVE_PATH, 'a') as file:
-            json.dump(metrics, file)
-        print('Rewards Tracked: ', step.value())
+        global step_reward_tracker
+        step_reward_tracker = step_reward_tracker.append(pd.DataFrame.from_dict(metrics, orient='columns'))
+        
 
         if should_train(step):
             for _ in range(config.train_steps):
@@ -303,22 +326,28 @@ def main():
                                metrics_rolled['p_in_taxi']))
 
             for name, values in metrics_rolled.items():
-                # for value in values:
-
-                #   logger.scalar(name, np.array(value, np.float64).mean())
 
                 metrics_rolled[name].clear()
-            # step_rewards['actual_reward'] = actual_rewards
-            # step_rewards['is_timeout'] = is_timeout
-            # step_rewards['pred_reward_mode'] = pred_reward_modes
-            # step_rewards['pred_reward_mean'] = pred_reward_means
-            # step_rewards['pred_discount_mode'] = pred_discount_modes
-            # step_rewards['pred_discount_mean'] = pred_discount_means
-            # step_rewards['taxi_row'] = taxi_rows
-            # step_rewards['taxi_col'] = taxi_cols
-            # step_rewards['p_row'] = p_rows
-            # step_rewards['p_col'] = p_cols
-            # step_rewards['in_taxi'] = in_taxi
+
+            
+            global reward_tracker
+
+            batch_data = pd.DataFrame(columns = reward_tracker.columns)
+
+            batch_data['actual_reward'] = actual_rewards
+            batch_data['is_timeout'] = is_timeout
+            batch_data['pred_reward_mode'] = pred_reward_modes
+            batch_data['pred_reward_mean'] = pred_reward_means
+            batch_data['pred_discount_mode'] = pred_discount_modes
+            batch_data['pred_discount_mean'] = pred_discount_means
+            batch_data['taxi_row'] = taxi_rows
+            batch_data['taxi_col'] = taxi_cols
+            batch_data['p_row'] = p_rows
+            batch_data['p_col'] = p_cols
+            batch_data['in_taxi'] = in_taxi
+
+            reward_tracker = reward_tracker.append(batch_data, ignore_index=True)
+            reward_tracker.to_csv(BATCH_REWARD_SAVE_PATH, index=False)
 
             #original DV2 metrics extraction and logging
             for name, values in metrics.items():
