@@ -246,9 +246,9 @@ def main():
 
     def train_step(tran, worker):
 	
-	pdb.set_trace()
-	global step_reward_tracker
-	recent_history.append(tran)
+        pdb.set_trace()
+        global step_reward_tracker
+        recent_history.append(tran)
 
         if len(recent_history) > config.dataset.length:
             step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
