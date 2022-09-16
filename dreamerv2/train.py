@@ -246,7 +246,7 @@ def main():
 
     def train_step(tran, worker):
 	
-        pdb.set_trace()        
+	pdb.set_trace()        
         global step_reward_tracker
         recent_history.append(tran)
 
@@ -287,9 +287,8 @@ def main():
             'in_taxi': tran['p_pos'][2]
         }
 
-        
-        step_reward_tracker = step_reward_tracker.append(pd.DataFrame.from_dict(step_metrics, orient='index'), ignore_index=True)
-        
+	#step_reward_tracker = step_reward_tracker.append(pd.DataFrame.from_dict(step_metrics, orient='index'), ignore_index=True)
+	step_reward_tracker = step_reward_tracker.append(step_metrics, ignore_index=True)
 
         if should_train(step):
             for _ in range(config.train_steps):
