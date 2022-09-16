@@ -246,9 +246,9 @@ def main():
 
     def train_step(tran, worker):
 	
-        pdb.set_trace()
-        global step_reward_tracker
-        recent_history.append(tran)
+	pdb.set_trace()        
+	global step_reward_tracker
+	recent_history.append(tran)
 
         if len(recent_history) > config.dataset.length:
             step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
@@ -271,7 +271,7 @@ def main():
         pred_reward_mean = np.array(agnt.wm.heads['reward'](feats).mean())[0][-1]
         pred_discount_mean = np.array(agnt.wm.heads['discount'](feats).mean())[0][-1]
 
-        metrics = {
+        step_metrics = {
             'single_step': step.value,
             'single_actual_reward': int(tran['reward']),
             'single_actual_terminal': bool(tran['is_terminal']),
@@ -288,7 +288,7 @@ def main():
         }
 
         
-        step_reward_tracker = step_reward_tracker.append(pd.DataFrame.from_dict(metrics, orient='columns'), ignore_index=True)
+        step_reward_tracker = step_reward_tracker.append(pd.DataFrame.from_dict(step_metrics, orient='index'), ignore_index=True)
         
 
         if should_train(step):
