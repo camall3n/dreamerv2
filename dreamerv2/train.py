@@ -225,7 +225,7 @@ def main():
     recent_history = []
 
     def train_step(tran, worker):
-
+        pdb.set_trace()
         recent_history.append(tran)
         if len(recent_history) > config.dataset.length:
             recent_history.pop(0)
@@ -242,16 +242,16 @@ def main():
         feats = agnt.wm.rssm.get_feat(states)
 
         #original DV2 metrics update
-        pred_reward_mode = agnt.wm.heads['reward'](feats).mode()[0][-1]
-        pred_discount_mode = agnt.wm.heads['discount'](feats).mode()[0][-1]
-        pred_reward_mean = agnt.wm.heads['reward'](feats).mean()[0][-1]
-        pred_discount_mean = agnt.wm.heads['discount'](feats).mean()[0][-1]
+        pred_reward_mode = np.array(agnt.wm.heads['reward'](feats).mode())[0][-1]
+        pred_discount_mode = np.array(agnt.wm.heads['discount'](feats).mode())[0][-1]
+        pred_reward_mean = np.array(agnt.wm.heads['reward'](feats).mean())[0][-1]
+        pred_discount_mean = np.array(agnt.wm.heads['discount'](feats).mean())[0][-1]
 
         metrics = {
-            'single_step': step.value(),
-            'single_actual_reward': tran['reward'],
-            'single_actual_terminal': tran['is_terminal'],
-            'single_actual_timeout': tran['is_timeout'],
+            'single_step': step.value,
+            'single_actual_reward': int(tran['reward']),
+            'single_actual_terminal': bool(tran['is_terminal']),
+            'single_actual_timeout': bool(tran['is_timeout']),
             'single_pred_reward_mean': pred_reward_mean,
             'single_pred_reward_mode': pred_reward_mode,
             'single_pred_discount_mean': pred_discount_mean,
