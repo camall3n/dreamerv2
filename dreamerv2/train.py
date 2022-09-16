@@ -1,5 +1,7 @@
+# yapf:disable
 import collections
 import functools
+import json
 import logging
 import os
 import pathlib
@@ -11,6 +13,7 @@ import argparse
 
 from visgrid.wrappers.transforms import NoiseWrapper, ClipWrapper, TransformWrapper
 from gym.wrappers.time_limit import TimeLimit
+from dreamerv2.common.replay import convert
 
 try:
   import rich.traceback
@@ -59,15 +62,7 @@ def main():
 
   config.update({'steps':args.num_steps})
   # config = common.Flags(config).parse(remaining)
-  
-  REWARD_SAVE_PATH = os.path.join(config.logdir, 'reward_data.csv')
-  global reward_tracker
-
-  if os.path.exists(REWARD_SAVE_PATH):
-    reward_tracker = pd.read_csv(REWARD_SAVE_PATH)
-  else:
-    reward_tracker = pd.DataFrame(columns = ['actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean','taxi_row', 'taxi_col', 'p_row', 'p_col','in_taxi'])
-
+  REWARD_SAVE_PATH = os.path.join(config.logdir, 'reward_data.json')
 
   logdir = pathlib.Path(config.logdir).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)
@@ -134,12 +129,12 @@ def main():
 
       from visgrid.envs import TaxiEnv
       env = TaxiEnv(size=5,
-                    n_passengers=1,
-                    exploring_starts=True,
-                    terminate_on_goal=True,
-                    depot_dropoff_only=False,
-                    should_render=True,
-                    dimensions=TaxiEnv.dimensions_5x5_to_64x64)
+              n_passengers=1,
+              exploring_starts=True,
+              terminate_on_goal=True,
+              depot_dropoff_only=False,
+              should_render=True,
+              dimensions=TaxiEnv.dimensions_5x5_to_64x64)
       env = NoiseWrapper(env, sigma=0.01)
       env = ClipWrapper(env, 0.0, 1.0)
       env = TransformWrapper(env, lambda x: x - 0.5)
@@ -229,7 +224,50 @@ def main():
       *args, mode='explore' if should_expl(step) else 'train')
   eval_policy = lambda *args: agnt.policy(*args, mode='eval')
 
+  recent_history = []
+
   def train_step(tran, worker):
+
+    recent_history.append(tran)
+    if len(recent_history) > config.dataset.length:
+      recent_history.pop(0)
+
+    trajectory = {
+      k: np.expand_dims(np.array([convert(experience[k]) for experience in recent_history]),
+                0)
+      for k in tran.keys()
+    }
+
+    #ADDON: predicting reward on exisiting env
+    embed = agnt.wm.encoder(trajectory)
+    states, _ = agnt.wm.rssm.observe(embed, trajectory['action'], trajectory['is_first'])
+    feats = agnt.wm.rssm.get_feat(states)
+
+    #original DV2 metrics update
+    pred_reward_mode = agnt.wm.heads['reward'](feats).mode()[0][-1]
+    pred_discount_mode = agnt.wm.heads['discount'](feats).mode()[0][-1]
+    pred_reward_mean = agnt.wm.heads['reward'](feats).mean()[0][-1]
+    pred_discount_mean = agnt.wm.heads['discount'](feats).mean()[0][-1]
+
+    metrics = {
+      'single_step': step.value(),
+      'single_actual_reward': tran['reward'],
+      'single_actual_terminal': tran['is_terminal'],
+      'single_actual_timeout': tran['is_timeout'],
+      'single_pred_reward_mean': pred_reward_mean,
+      'single_pred_reward_mode': pred_reward_mode,
+      'single_pred_discount_mean': pred_discount_mean,
+      'single_pred_discount_mode': pred_discount_mode,
+      'taxi_row': tran['taxi_pos'][0],
+      'taxi_col': tran['taxi_pos'][1],
+      'p_row': tran['p_pos'][0],
+      'p_col': tran['p_pos'][1],
+      'in_taxi': tran['p_pos'][2],
+    }
+
+    with open(REWARD_SAVE_PATH, 'a') as file:
+      json.dump(metrics, file)
+    print('Rewards Tracked: ', step.value())
 
     if should_train(step):
       for _ in range(config.train_steps):
@@ -262,26 +300,17 @@ def main():
         #   logger.scalar(name, np.array(value, np.float64).mean())
 
         metrics_rolled[name].clear()
-      
-      global reward_tracker
-
-      step_rewards = pd.DataFrame(columns = reward_tracker.columns)
-      step_rewards['actual_reward'] = actual_rewards
-      step_rewards['is_timeout'] = is_timeout
-      step_rewards['pred_reward_mode'] = pred_reward_modes
-      step_rewards['pred_reward_mean'] = pred_reward_means
-      step_rewards['pred_discount_mode'] = pred_discount_modes
-      step_rewards['pred_discount_mean'] = pred_discount_means
-      step_rewards['taxi_row'] = taxi_rows
-      step_rewards['taxi_col'] = taxi_cols
-      step_rewards['p_row'] = p_rows
-      step_rewards['p_col'] = p_cols
-      step_rewards['in_taxi'] = in_taxi
-
-      reward_tracker = reward_tracker.append(step_rewards, ignore_index=True)
-
-      print('Rewards Tracked: ', len(reward_tracker))
-      reward_tracker.to_csv(REWARD_SAVE_PATH, index=False)
+      # step_rewards['actual_reward'] = actual_rewards
+      # step_rewards['is_timeout'] = is_timeout
+      # step_rewards['pred_reward_mode'] = pred_reward_modes
+      # step_rewards['pred_reward_mean'] = pred_reward_means
+      # step_rewards['pred_discount_mode'] = pred_discount_modes
+      # step_rewards['pred_discount_mean'] = pred_discount_means
+      # step_rewards['taxi_row'] = taxi_rows
+      # step_rewards['taxi_col'] = taxi_cols
+      # step_rewards['p_row'] = p_rows
+      # step_rewards['p_col'] = p_cols
+      # step_rewards['in_taxi'] = in_taxi
 
       #original DV2 metrics extraction and logging
       for name, values in metrics.items():
