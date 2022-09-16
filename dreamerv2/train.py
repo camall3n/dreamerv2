@@ -245,7 +245,7 @@ def main():
     recent_history = []
 
     def train_step(tran, worker):
-        pdb.set_trace()        
+        #pdb.set_trace()        
         global step_reward_tracker
         recent_history.append(tran)
 
