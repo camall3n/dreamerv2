@@ -44,6 +44,7 @@ import pdb
 #ADDON: reward tracker variable: to be populated CSV file tracking per-step metrics
 reward_tracker = None
 step_reward_tracker = None
+resume_step = 0
 
 def main():
 
@@ -66,6 +67,7 @@ def main():
 
     global reward_tracker
     global step_reward_tracker
+    global resume_step
 
     if os.path.exists(BATCH_REWARD_SAVE_PATH):
         reward_tracker = pd.read_csv(BATCH_REWARD_SAVE_PATH)
@@ -74,11 +76,13 @@ def main():
     
     if os.path.exists(STEP_REWARD_SAVE_PATH):
         step_reward_tracker = pd.read_csv(STEP_REWARD_SAVE_PATH)
+	resume_step = step_reward_tracker.iloc[-1]['single_step']
     else:
         step_reward_tracker = pd.DataFrame(columns = ['single_step',
             'single_actual_reward', 'single_actual_terminal', 'single_actual_timeout','single_pred_reward_mean','single_pred_reward_mode','single_pred_discount_mean',
             'single_pred_discount_mode',
             'taxi_row','taxi_col','p_row','p_col','in_taxi'])
+	resume_step = 0
 
 
     logdir = pathlib.Path(config.logdir).expanduser()
@@ -247,6 +251,8 @@ def main():
     def train_step(tran, worker):
         #pdb.set_trace()        
         global step_reward_tracker
+	global resume_step
+	
         recent_history.append(tran)
 
         if len(recent_history) > config.dataset.length:
@@ -287,7 +293,8 @@ def main():
         }
 
         #step_reward_tracker = step_reward_tracker.append(pd.DataFrame.from_dict(step_metrics, orient='index'), ignore_index=True)
-        step_reward_tracker = step_reward_tracker.append(step_metrics, ignore_index=True)
+        if step.value > resume_step:
+	    step_reward_tracker = step_reward_tracker.append(step_metrics, ignore_index=True)
 
         if should_train(step):
             for _ in range(config.train_steps):
