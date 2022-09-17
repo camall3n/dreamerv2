@@ -46,6 +46,11 @@ reward_tracker = None
 step_reward_tracker = None
 resume_step = 0
 
+AGENT_SAVE_PATH = None
+SAVE_STEPS = [1, 150e3, 500e3, 1.5e6, 5e6, 15e6, 50e6]
+SAVE_STEPS = [1, 5, 10, 15, 20]
+curr_save_idx = 0
+
 def main():
 
     configs = yaml.safe_load((pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
@@ -68,6 +73,12 @@ def main():
     global reward_tracker
     global step_reward_tracker
     global resume_step
+    global AGENT_SAVE_PATH
+
+    AGENT_SAVE_PATH = os.path.join(config.logdir, 'saved_models')
+
+    if not os.path.exists(AGENT_SAVE_PATH):
+        os.mkdir(AGENT_SAVE_PATH)
 
     if os.path.exists(BATCH_REWARD_SAVE_PATH):
         reward_tracker = pd.read_csv(BATCH_REWARD_SAVE_PATH)
@@ -253,6 +264,10 @@ def main():
                
         global step_reward_tracker
         global resume_step
+        global AGENT_SAVE_PATH
+
+        global SAVE_STEPS
+        global curr_save_idx
 	
         recent_history.append(tran)
 
@@ -294,6 +309,14 @@ def main():
 
         if step.value > resume_step:
             metrics_history.append(step_metrics)
+
+        
+        #ADD ON: save agent weights at specific steps
+        if curr_save_idx < len(SAVE_STEPS) and step.value > SAVE_STEPS[curr_save_idx]:
+            pdb.set_trace()
+            agnt.save( os.path.join( AGENT_SAVE_PATH,'variables_step{}.pkl'.format(step.value) ) )
+            curr_save_idx += 1 
+
         
         if should_train(step):
             for _ in range(config.train_steps):
@@ -304,33 +327,20 @@ def main():
                 [metrics_rolled[key].extend(value) for key, value in mets_rolled.items()]
 
         if should_log(step):
-	    
-            pdb.set_trace()
-            
-            #ADD ON: extracting per-step metrics from metrics_rolled
-            pred_reward_modes = list(
-                map(lambda value: np.array(value, np.float64), metrics_rolled['pred_reward_mode']))
-            pred_reward_means = list(
-                map(lambda value: np.array(value, np.float64), metrics_rolled['pred_reward_mean']))
-            pred_discount_modes = list(
-                map(lambda value: np.array(value, np.float64),
-                    metrics_rolled['pred_discount_mode']))
-            pred_discount_means = list(
-                map(lambda value: np.array(value, np.float64),
-                    metrics_rolled['pred_discount_mean']))
-            actual_rewards = list(
-                map(lambda value: np.array(value, np.float64), metrics_rolled['actual_reward']))
 
-            is_timeout = list(
-                map(lambda value: np.array(value, np.int8), metrics_rolled['is_timeout']))
-            taxi_rows = list(
-                map(lambda value: np.array(value, np.int8), metrics_rolled['taxi_row']))
-            taxi_cols = list(
-                map(lambda value: np.array(value, np.int8), metrics_rolled['taxi_col']))
-            p_rows = list(map(lambda value: np.array(value, np.int8), metrics_rolled['p_row']))
-            p_cols = list(map(lambda value: np.array(value, np.int8), metrics_rolled['p_col']))
-            in_taxi = list(map(lambda value: np.array(value, np.int8),
-                               metrics_rolled['p_in_taxi']))
+            #ADD ON: extracting per-step metrics from metrics_rolled
+            pred_reward_modes = np.array(metrics_rolled['pred_reward_mode'])
+            pred_reward_means = np.array(metrics_rolled['pred_reward_mean'])
+            pred_discount_modes = np.array(metrics_rolled['pred_discount_mode'])
+            pred_discount_means = np.array(metrics_rolled['pred_discount_mean'])
+            actual_rewards = np.array(metrics_rolled['actual_reward'])
+
+            is_timeout = np.array(metrics_rolled['is_timeout'])
+            taxi_rows = np.array( metrics_rolled['taxi_row'])
+            taxi_cols = np.array( metrics_rolled['taxi_col'])
+            p_rows = np.array( metrics_rolled['p_row'])
+            p_cols = np.array(metrics_rolled['p_col'])
+            in_taxi =np.array(metrics_rolled['p_in_taxi'])
 
             for name, values in metrics_rolled.items():
 
@@ -381,7 +391,7 @@ def main():
         print('Start training.')
 
         train_driver(train_policy, steps=config.eval_every)
-        pdb.set_trace()
+        
         agnt.save(logdir / 'variables.pkl')
 
         print('Saving reward')
