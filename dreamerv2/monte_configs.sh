@@ -13,4 +13,4 @@
 #SBATCH -e monte_configs.err
 
 source venv/bin/activate
-python3.9 train.py --configs monte --num_steps 40000
+python3.9 train.py --configs monte --num_steps 50000000
