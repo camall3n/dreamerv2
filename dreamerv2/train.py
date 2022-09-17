@@ -48,7 +48,7 @@ resume_step = 0
 
 AGENT_SAVE_PATH = None
 SAVE_STEPS = [1, 150e3, 500e3, 1.5e6, 5e6, 15e6, 50e6]
-SAVE_STEPS = [1, 5, 10, 15, 20]
+#SAVE_STEPS = [1, 5, 10, 15, 20]
 curr_save_idx = 0
 
 def main():
@@ -313,7 +313,7 @@ def main():
         
         #ADD ON: save agent weights at specific steps
         if curr_save_idx < len(SAVE_STEPS) and step.value > SAVE_STEPS[curr_save_idx]:
-            pdb.set_trace()
+            #pdb.set_trace()
             agnt.save( AGENT_SAVE_PATH/'variables_step{}.pkl'.format(step.value) ) 
             curr_save_idx += 1 
 
@@ -370,6 +370,7 @@ def main():
             #appending to the step-wise metrics dataframe
             step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
             step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
+	    pdb.set_trace()
             metrics_history.clear()
 
             #original DV2 metrics extraction and logging
