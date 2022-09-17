@@ -247,6 +247,7 @@ def main():
     eval_policy = lambda *args: agnt.policy(*args, mode='eval')
 
     recent_history = []
+    metrics_history = []
 
     def train_step(tran, worker):
         #pdb.set_trace()        
@@ -256,7 +257,11 @@ def main():
         recent_history.append(tran)
 
         if len(recent_history) > config.dataset.length:
+
+            step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
             step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
+
+            metrics_history = []
             recent_history.pop(0)
 
         trajectory = {
@@ -294,7 +299,7 @@ def main():
 
         #step_reward_tracker = step_reward_tracker.append(pd.DataFrame.from_dict(step_metrics, orient='index'), ignore_index=True)
         if step.value > resume_step:
-            step_reward_tracker = step_reward_tracker.append(step_metrics, ignore_index=True)
+            metrics_history.append(step_metrics)
         
         if should_train(step):
             for _ in range(config.train_steps):
