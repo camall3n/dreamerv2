@@ -250,7 +250,7 @@ def main():
     metrics_history = []
 
     def train_step(tran, worker):
-        #pdb.set_trace()        
+               
         global step_reward_tracker
         global resume_step
 	
@@ -261,7 +261,7 @@ def main():
             step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
             step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
 
-            metrics_history = []
+            metrics_history.clear()
             recent_history.pop(0)
 
         trajectory = {
@@ -297,7 +297,6 @@ def main():
             'in_taxi': tran['p_pos'][2]
         }
 
-        #step_reward_tracker = step_reward_tracker.append(pd.DataFrame.from_dict(step_metrics, orient='index'), ignore_index=True)
         if step.value > resume_step:
             metrics_history.append(step_metrics)
         
