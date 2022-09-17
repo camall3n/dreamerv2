@@ -75,10 +75,8 @@ def main():
     global resume_step
     global AGENT_SAVE_PATH
 
-    AGENT_SAVE_PATH = os.path.join(config.logdir, 'saved_models')
+    AGENT_SAVE_PATH = pathlib.Path(config.logdir)/'saved_models'
 
-    if not os.path.exists(AGENT_SAVE_PATH):
-        os.mkdir(AGENT_SAVE_PATH)
 
     if os.path.exists(BATCH_REWARD_SAVE_PATH):
         reward_tracker = pd.read_csv(BATCH_REWARD_SAVE_PATH)
@@ -98,6 +96,8 @@ def main():
 
     logdir = pathlib.Path(config.logdir).expanduser()
     logdir.mkdir(parents=True, exist_ok=True)
+    AGENT_SAVE_PATH.mkdir(parents=True, exist_ok=True)
+    
     config.save(logdir / 'config.yaml')
     print(config, '\n')
     print('Logdir', logdir)
@@ -314,7 +314,7 @@ def main():
         #ADD ON: save agent weights at specific steps
         if curr_save_idx < len(SAVE_STEPS) and step.value > SAVE_STEPS[curr_save_idx]:
             pdb.set_trace()
-            agnt.save( os.path.join( AGENT_SAVE_PATH,'variables_step{}.pkl'.format(step.value) ) )
+            agnt.save( AGENT_SAVE_PATH/'variables_step{}.pkl'.format(step.value) ) 
             curr_save_idx += 1 
 
         
