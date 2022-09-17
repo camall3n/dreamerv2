@@ -257,11 +257,6 @@ def main():
         recent_history.append(tran)
 
         if len(recent_history) > config.dataset.length:
-
-            step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
-            step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
-
-            metrics_history.clear()
             recent_history.pop(0)
 
         trajectory = {
@@ -356,8 +351,14 @@ def main():
             batch_data['p_col'] = p_cols
             batch_data['in_taxi'] = in_taxi
 
+            #appending to the batch-wise metrics dataframe
             reward_tracker = reward_tracker.append(batch_data, ignore_index=True)
             reward_tracker.to_csv(BATCH_REWARD_SAVE_PATH, index=False)
+
+            #appending to the step-wise metrics dataframe
+            step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
+            step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
+            metrics_history.clear()
 
             #original DV2 metrics extraction and logging
             for name, values in metrics.items():
