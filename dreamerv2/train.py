@@ -374,7 +374,8 @@ def main():
         print('Start training.')
 
         train_driver(train_policy, steps=config.eval_every)
-        agnt.save(logdir / 'variables.pkl')
+        pdb.set_trace()
+	agnt.save(logdir / 'variables.pkl')
 
         print('Saving reward')
 
