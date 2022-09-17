@@ -304,7 +304,8 @@ def main():
                 [metrics_rolled[key].extend(value) for key, value in mets_rolled.items()]
 
         if should_log(step):
-
+	    
+	    pdb.set_trace()
             #ADD ON: extracting per-step metrics from metrics_rolled
             pred_reward_modes = list(
                 map(lambda value: np.array(value, np.float64), metrics_rolled['pred_reward_mode']))
