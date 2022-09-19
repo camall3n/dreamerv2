@@ -48,8 +48,8 @@ resume_step = 0
 
 AGENT_SAVE_PATH = None
 SAVE_STEPS = [1, 150e3, 500e3, 1.5e6, 5e6, 15e6, 50e6]
-#SAVE_STEPS = [1, 5, 10, 15, 20]
 curr_save_idx = 0
+
 
 def main():
 
@@ -166,13 +166,12 @@ def main():
                           n_passengers=1,
                           exploring_starts=True,
                           terminate_on_goal=True,
-                          depot_dropoff_only=False,
+                          depot_dropoff_only=True,
                           should_render=True,
                           dimensions=TaxiEnv.dimensions_5x5_to_64x64)
             env = NoiseWrapper(env, sigma=0.01)
             env = ClipWrapper(env, 0.0, 1.0)
             env = TransformWrapper(env, lambda x: x - 0.5)
-            env = TimeLimit(env, max_episode_steps=40)
             env = common.GymWrapper(env)
             env = common.ResizeImage(env)
 
@@ -191,7 +190,7 @@ def main():
         print(f'{mode.title()} episode has {length} steps and return {score:.1f}.')
         logger.scalar(f'{mode}_return', score)
         logger.scalar(f'{mode}_length', length)
-        #pdb.set_trace()
+        
         for key, value in ep.items():
             if re.match(config.log_keys_sum, key):
                 logger.scalar(f'sum_{mode}_{key}', ep[key].sum())
@@ -229,7 +228,7 @@ def main():
     eval_driver.on_episode(lambda ep: per_episode(ep, mode='eval'))
     eval_driver.on_episode(eval_replay.add_episode)
 
-    #pdb.set_trace()
+    
     prefill = max(0, config.prefill - train_replay.stats['total_steps'])
     if prefill:
         print(f'Prefill dataset ({prefill} steps).')
@@ -239,7 +238,7 @@ def main():
         train_driver.reset()
         eval_driver.reset()
 
-    #pdb.set_trace()
+    
     print('Create agent.')
     train_dataset = iter(train_replay.dataset(**config.dataset))
     report_dataset = iter(train_replay.dataset(**config.dataset))
@@ -268,52 +267,55 @@ def main():
 
         global SAVE_STEPS
         global curr_save_idx
+
+
+        if config.save_step:
 	
-        recent_history.append(tran)
+            recent_history.append(tran)
 
-        if len(recent_history) > config.dataset.length:
-            recent_history.pop(0)
+            if len(recent_history) > config.dataset.length:
+                recent_history.pop(0)
 
-        trajectory = {
-            k: np.expand_dims(np.array([convert(experience[k]) for experience in recent_history]),
-                              0)
-            for k in tran.keys()
-        }
+            trajectory = {
+                k: np.expand_dims(np.array([convert(experience[k]) for experience in recent_history]),
+                                0)
+                for k in tran.keys()
+            }
 
-        #ADDON: predicting reward on exisiting env
-        embed = agnt.wm.encoder(trajectory)
-        states, _ = agnt.wm.rssm.observe(embed, trajectory['action'], trajectory['is_first'])
-        feats = agnt.wm.rssm.get_feat(states)
+            #ADDON: predicting reward on exisiting env
+            embed = agnt.wm.encoder(trajectory)
+            states, _ = agnt.wm.rssm.observe(embed, trajectory['action'], trajectory['is_first'])
+            feats = agnt.wm.rssm.get_feat(states)
 
-        #original DV2 metrics update
-        pred_reward_mode = np.array(agnt.wm.heads['reward'](feats).mode())[0][-1]
-        pred_discount_mode = np.array(agnt.wm.heads['discount'](feats).mode())[0][-1]
-        pred_reward_mean = np.array(agnt.wm.heads['reward'](feats).mean())[0][-1]
-        pred_discount_mean = np.array(agnt.wm.heads['discount'](feats).mean())[0][-1]
+            #original DV2 metrics update
+            pred_reward_mode = np.array(agnt.wm.heads['reward'](feats).mode())[0][-1]
+            pred_discount_mode = np.array(agnt.wm.heads['discount'](feats).mode())[0][-1]
+            pred_reward_mean = np.array(agnt.wm.heads['reward'](feats).mean())[0][-1]
+            pred_discount_mean = np.array(agnt.wm.heads['discount'](feats).mean())[0][-1]
 
-        step_metrics = {
-            'single_step': step.value,
-            'single_actual_reward': int(tran['reward']),
-            'single_actual_terminal': bool(tran['is_terminal']),
-            'single_actual_timeout': bool(tran['is_timeout']),
-            'single_pred_reward_mean': pred_reward_mean,
-            'single_pred_reward_mode': pred_reward_mode,
-            'single_pred_discount_mean': pred_discount_mean,
-            'single_pred_discount_mode': pred_discount_mode,
-            'taxi_row': tran['taxi_pos'][0],
-            'taxi_col': tran['taxi_pos'][1],
-            'p_row': tran['p_pos'][0],
-            'p_col': tran['p_pos'][1],
-            'in_taxi': tran['p_pos'][2]
-        }
+            step_metrics = {
+                'single_step': step.value,
+                'single_actual_reward': int(tran['reward']),
+                'single_actual_terminal': bool(tran['is_terminal']),
+                'single_actual_timeout': bool(tran['is_timeout']),
+                'single_pred_reward_mean': pred_reward_mean,
+                'single_pred_reward_mode': pred_reward_mode,
+                'single_pred_discount_mean': pred_discount_mean,
+                'single_pred_discount_mode': pred_discount_mode,
+                'taxi_row': tran['taxi_pos'][0],
+                'taxi_col': tran['taxi_pos'][1],
+                'p_row': tran['p_pos'][0],
+                'p_col': tran['p_pos'][1],
+                'in_taxi': tran['p_pos'][2]
+            }
 
-        if step.value > resume_step:
-            metrics_history.append(step_metrics)
+            if step.value > resume_step:
+                metrics_history.append(step_metrics)
 
         
         #ADD ON: save agent weights at specific steps
         if curr_save_idx < len(SAVE_STEPS) and step.value > SAVE_STEPS[curr_save_idx]:
-            #pdb.set_trace()
+            
             agnt.save( AGENT_SAVE_PATH/'variables_step{}.pkl'.format(step.value) ) 
             curr_save_idx += 1 
 
@@ -328,50 +330,19 @@ def main():
 
         if should_log(step):
 
-            #ADD ON: extracting per-step metrics from metrics_rolled
-            #pred_reward_modes = np.array(metrics_rolled['pred_reward_mode'])
-            #pred_reward_means = np.array(metrics_rolled['pred_reward_mean'])
-            #pred_discount_modes = np.array(metrics_rolled['pred_discount_mode'])
-            #pred_discount_means = np.array(metrics_rolled['pred_discount_mean'])
-            #actual_rewards = np.array(metrics_rolled['actual_reward'])
-
-            #is_timeout = np.array(metrics_rolled['is_timeout'])
-            #taxi_rows = np.array( metrics_rolled['taxi_row'])
-            #taxi_cols = np.array( metrics_rolled['taxi_col'])
-            #p_rows = np.array( metrics_rolled['p_row'])
-            #p_cols = np.array(metrics_rolled['p_col'])
-            #in_taxi =np.array(metrics_rolled['p_in_taxi'])
 
             for name, values in metrics_rolled.items():
 
                 metrics_rolled[name].clear()
 
-            
-            #global reward_tracker
-
-            #batch_data = pd.DataFrame(columns = reward_tracker.columns)
-
-            #batch_data['actual_reward'] = actual_rewards
-            #batch_data['is_timeout'] = is_timeout
-            #batch_data['pred_reward_mode'] = pred_reward_modes
-            #batch_data['pred_reward_mean'] = pred_reward_means
-            #batch_data['pred_discount_mode'] = pred_discount_modes
-            #batch_data['pred_discount_mean'] = pred_discount_means
-            #batch_data['taxi_row'] = taxi_rows
-            #batch_data['taxi_col'] = taxi_cols
-            #batch_data['p_row'] = p_rows
-            #batch_data['p_col'] = p_cols
-            #batch_data['in_taxi'] = in_taxi
-
-            #appending to the batch-wise metrics dataframe
-            #reward_tracker = reward_tracker.append(batch_data, ignore_index=True)
-            #reward_tracker.to_csv(BATCH_REWARD_SAVE_PATH, index=False)
 
             #appending to the step-wise metrics dataframe
-            step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
-            step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
-            #pdb.set_trace()
-            metrics_history.clear()
+            if config.save_step:
+                step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
+                step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
+            
+
+                metrics_history.clear()
 
             #original DV2 metrics extraction and logging
             for name, values in metrics.items():

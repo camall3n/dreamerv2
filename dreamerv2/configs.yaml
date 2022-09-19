@@ -2,6 +2,7 @@ defaults:
 
   # Train Script
   logdir: ../logs/taxi_50mil_binaryhead_norolled
+  save_step: False
   seed: 0
   task: taxi_env
   envs: 1
@@ -82,12 +83,12 @@ monte:
   task: taxi_env
   encoder: {mlp_keys: '$^', cnn_keys: 'image'}
   decoder: {mlp_keys: '$^', cnn_keys: 'image'}
-  time_limit: 1500
+  time_limit: 40
   action_repeat: 4
-  steps: 50e6 #original 50mil
+  steps: 1e6 #original 50mil
   eval_every: 2.5e5 # original: 2.5e5
   log_every: 10e3 #original: 10k
-  prefill: 50e3 #original: 50k
+  prefill: 10e3 #original: 50k
   train_every: 30
   clip_rewards: tanh
   rssm: {hidden: 600, deter: 600}
