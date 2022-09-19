@@ -166,6 +166,7 @@ def main():
                           n_passengers=1,
                           exploring_starts=True,
                           terminate_on_goal=True,
+                          fixed_goal=False,
                           depot_dropoff_only=True,
                           should_render=True,
                           dimensions=TaxiEnv.dimensions_5x5_to_64x64)
