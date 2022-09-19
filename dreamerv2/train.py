@@ -67,6 +67,7 @@ def main():
 
     config.update({'steps': args.num_steps})
     config.update({'seed': args.seed})
+    config.update({'logdir': config.logdir+f'_{args.seed:02d}'})
     # config = common.Flags(config).parse(remaining)
 
     BATCH_REWARD_SAVE_PATH = os.path.join(config.logdir, 'batch_reward_data.csv')
