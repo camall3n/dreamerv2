@@ -61,10 +61,12 @@ def main():
         config = config.update(configs[name])
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--seed', type=int, required=True)
     parser.add_argument('--num_steps', type=int, required=True)
     args = parser.parse_args(remaining)
 
     config.update({'steps': args.num_steps})
+    config.update({'seed': args.seed})
     # config = common.Flags(config).parse(remaining)
 
     BATCH_REWARD_SAVE_PATH = os.path.join(config.logdir, 'batch_reward_data.csv')
