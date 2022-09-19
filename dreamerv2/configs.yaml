@@ -86,7 +86,7 @@ monte:
   time_limit: 40
   action_repeat: 4
   steps: 1e6 #original 50mil
-  eval_every: 1e5 # original: 2.5e5
+  eval_every: 5e4 # original: 2.5e5
   log_every: 10e3 #original: 10k
   prefill: 10e3 #original: 50k
   train_every: 30
