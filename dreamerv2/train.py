@@ -329,48 +329,48 @@ def main():
         if should_log(step):
 
             #ADD ON: extracting per-step metrics from metrics_rolled
-            pred_reward_modes = np.array(metrics_rolled['pred_reward_mode'])
-            pred_reward_means = np.array(metrics_rolled['pred_reward_mean'])
-            pred_discount_modes = np.array(metrics_rolled['pred_discount_mode'])
-            pred_discount_means = np.array(metrics_rolled['pred_discount_mean'])
-            actual_rewards = np.array(metrics_rolled['actual_reward'])
+            #pred_reward_modes = np.array(metrics_rolled['pred_reward_mode'])
+            #pred_reward_means = np.array(metrics_rolled['pred_reward_mean'])
+            #pred_discount_modes = np.array(metrics_rolled['pred_discount_mode'])
+            #pred_discount_means = np.array(metrics_rolled['pred_discount_mean'])
+            #actual_rewards = np.array(metrics_rolled['actual_reward'])
 
-            is_timeout = np.array(metrics_rolled['is_timeout'])
-            taxi_rows = np.array( metrics_rolled['taxi_row'])
-            taxi_cols = np.array( metrics_rolled['taxi_col'])
-            p_rows = np.array( metrics_rolled['p_row'])
-            p_cols = np.array(metrics_rolled['p_col'])
-            in_taxi =np.array(metrics_rolled['p_in_taxi'])
+            #is_timeout = np.array(metrics_rolled['is_timeout'])
+            #taxi_rows = np.array( metrics_rolled['taxi_row'])
+            #taxi_cols = np.array( metrics_rolled['taxi_col'])
+            #p_rows = np.array( metrics_rolled['p_row'])
+            #p_cols = np.array(metrics_rolled['p_col'])
+            #in_taxi =np.array(metrics_rolled['p_in_taxi'])
 
             for name, values in metrics_rolled.items():
 
                 metrics_rolled[name].clear()
 
             
-            global reward_tracker
+            #global reward_tracker
 
-            batch_data = pd.DataFrame(columns = reward_tracker.columns)
+            #batch_data = pd.DataFrame(columns = reward_tracker.columns)
 
-            batch_data['actual_reward'] = actual_rewards
-            batch_data['is_timeout'] = is_timeout
-            batch_data['pred_reward_mode'] = pred_reward_modes
-            batch_data['pred_reward_mean'] = pred_reward_means
-            batch_data['pred_discount_mode'] = pred_discount_modes
-            batch_data['pred_discount_mean'] = pred_discount_means
-            batch_data['taxi_row'] = taxi_rows
-            batch_data['taxi_col'] = taxi_cols
-            batch_data['p_row'] = p_rows
-            batch_data['p_col'] = p_cols
-            batch_data['in_taxi'] = in_taxi
+            #batch_data['actual_reward'] = actual_rewards
+            #batch_data['is_timeout'] = is_timeout
+            #batch_data['pred_reward_mode'] = pred_reward_modes
+            #batch_data['pred_reward_mean'] = pred_reward_means
+            #batch_data['pred_discount_mode'] = pred_discount_modes
+            #batch_data['pred_discount_mean'] = pred_discount_means
+            #batch_data['taxi_row'] = taxi_rows
+            #batch_data['taxi_col'] = taxi_cols
+            #batch_data['p_row'] = p_rows
+            #batch_data['p_col'] = p_cols
+            #batch_data['in_taxi'] = in_taxi
 
             #appending to the batch-wise metrics dataframe
-            reward_tracker = reward_tracker.append(batch_data, ignore_index=True)
-            reward_tracker.to_csv(BATCH_REWARD_SAVE_PATH, index=False)
+            #reward_tracker = reward_tracker.append(batch_data, ignore_index=True)
+            #reward_tracker.to_csv(BATCH_REWARD_SAVE_PATH, index=False)
 
             #appending to the step-wise metrics dataframe
             step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
             step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
-            pdb.set_trace()
+            #pdb.set_trace()
             metrics_history.clear()
 
             #original DV2 metrics extraction and logging
