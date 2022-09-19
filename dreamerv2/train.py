@@ -47,7 +47,7 @@ step_reward_tracker = None
 resume_step = 0
 
 AGENT_SAVE_PATH = None
-SAVE_STEPS = [1, 150e3, 500e3, 1.5e6, 5e6, 15e6, 50e6]
+SAVE_STEPS = [1, 250e3, 500e3, 750e3, 1e6]
 curr_save_idx = 0
 
 
