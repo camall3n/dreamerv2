@@ -61,14 +61,10 @@ def main():
     for name in parsed.configs:
         config = config.update(configs[name])
 
-    #pdb.set_trace()
-    #if bool(config.append_seed):
-    #    config = config.update({'logdir': config.logdir+f'_{config.seed:02d}'})
-
     config = common.Flags(config).parse(remaining)
 
     if bool(config.append_seed):
-	config = config.update({'logdir': config.logdir+f'_{config.seed:02d}'})
+        config = config.update({'logdir': config.logdir+f'_{config.seed:02d}'})
     
     BATCH_REWARD_SAVE_PATH = os.path.join(config.logdir, 'batch_reward_data.csv')
     STEP_REWARD_SAVE_PATH = os.path.join(config.logdir, 'step_reward_data.csv')
