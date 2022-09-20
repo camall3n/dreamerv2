@@ -72,6 +72,7 @@ def main():
     global step_reward_tracker
     global resume_step
     global AGENT_SAVE_PATH
+    
 
     AGENT_SAVE_PATH = pathlib.Path(config.logdir)/'saved_models'
 
@@ -84,12 +85,14 @@ def main():
     if os.path.exists(STEP_REWARD_SAVE_PATH):
         step_reward_tracker = pd.read_csv(STEP_REWARD_SAVE_PATH)
         resume_step = step_reward_tracker.iloc[-1]['single_step']
+
     else:
         step_reward_tracker = pd.DataFrame(columns = ['single_step',
             'single_actual_reward', 'single_actual_terminal', 'single_actual_timeout','single_pred_reward_mean','single_pred_reward_mode','single_pred_discount_mean',
             'single_pred_discount_mode',
             'taxi_row','taxi_col','p_row','p_col','in_taxi'])
         resume_step = 0
+        
 
 
     logdir = pathlib.Path(config.logdir).expanduser()
@@ -312,7 +315,10 @@ def main():
                 metrics_history.append(step_metrics)
 
         
-        #ADD ON: save agent weights at specific steps
+        #ADD ON: save agent weights at specific steps + adjust curr_save_idx to the right value
+        while curr_save_idx < len(SAVE_STEPS) and SAVE_STEPS[curr_save_idx] < step.value:
+            curr_save_idx += 1
+
         if curr_save_idx < len(SAVE_STEPS) and step.value >= SAVE_STEPS[curr_save_idx]:
             
             agnt.save( AGENT_SAVE_PATH/'variables_step{}.pkl'.format(step.value) ) 
