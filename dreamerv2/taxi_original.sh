@@ -13,4 +13,4 @@
 #SBATCH -e taxi_original.err
 
 source venv/bin/activate
-python3.9 train.py --configs monte --num_steps 1000000 --seed 0 --logdir ../logs/taxi_50mil_binaryhead_original_metrics --save_step 0 --action_repeat 4
+python3.9 train.py --configs monte --steps 1000000 --seed 0 --logdir ../logs/taxi_50mil_binaryhead_original_metrics --save_step True --action_repeat 4
