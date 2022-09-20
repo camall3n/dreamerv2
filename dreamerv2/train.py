@@ -47,7 +47,7 @@ step_reward_tracker = None
 resume_step = 0
 
 AGENT_SAVE_PATH = None
-SAVE_STEPS = [1, 250e3, 500e3, 750e3, 1e6]
+SAVE_STEPS = [1, 50000, 100000, 200000, 500000, 1000000]
 curr_save_idx = 0
 
 
@@ -61,13 +61,14 @@ def main():
         config = config.update(configs[name])
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', type=int, required=True)
+    parser.add_argument('--seed', type=int, required=False)
     parser.add_argument('--num_steps', type=int, required=True)
+    parser.add_argument('--logdir', type=str, required = True)
     args = parser.parse_args(remaining)
 
     config.update({'steps': args.num_steps})
     config.update({'seed': args.seed})
-    config.update({'logdir': config.logdir+f'_{args.seed:02d}'})
+    config.update({'logdir': config.logdir+f'_{args.seed:02d}' if args.seed > 0 else args.logdir})
     # config = common.Flags(config).parse(remaining)
 
     BATCH_REWARD_SAVE_PATH = os.path.join(config.logdir, 'batch_reward_data.csv')
@@ -273,7 +274,7 @@ def main():
         global curr_save_idx
 
 
-        if config.save_step:
+        if bool(config.save_step):
 	
             recent_history.append(tran)
 
@@ -318,7 +319,7 @@ def main():
 
         
         #ADD ON: save agent weights at specific steps
-        if curr_save_idx < len(SAVE_STEPS) and step.value > SAVE_STEPS[curr_save_idx]:
+        if curr_save_idx < len(SAVE_STEPS) and step.value >= SAVE_STEPS[curr_save_idx]:
             
             agnt.save( AGENT_SAVE_PATH/'variables_step{}.pkl'.format(step.value) ) 
             curr_save_idx += 1 
@@ -341,7 +342,7 @@ def main():
 
 
             #appending to the step-wise metrics dataframe
-            if config.save_step:
+            if bool(config.save_step):
                 step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
                 step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
             
