@@ -47,8 +47,7 @@ step_reward_tracker = None
 resume_step = 0
 
 AGENT_SAVE_PATH = None
-#SAVE_STEPS = [1, 50000, 100000, 200000, 500000, 1000000]
-SAVE_STEPS = [1, 1000, 2000, 3000, 4000, 5000]
+SAVE_STEPS = [1, 50000, 100000, 200000, 500000, 1000000]
 curr_save_idx = 0
 
 
@@ -73,6 +72,8 @@ def main():
     global step_reward_tracker
     global resume_step
     global AGENT_SAVE_PATH
+    global SAVE_STEPS
+    global curr_save_idx
     
 
     AGENT_SAVE_PATH = pathlib.Path(config.logdir)/'saved_models'
@@ -130,6 +131,11 @@ def main():
                maxlen=config.replay.maxlen))
 
     step = common.Counter(train_replay.stats['total_steps'])
+
+    #ADD ON: adjusting curr_save_idx to the right index before staring experiment
+    while curr_save_idx < len(SAVE_STEPS) and step.value > SAVE_STEPS[curr_save_idx]:
+        curr_save_idx += 1
+
     outputs = [
         common.TerminalOutput(),
         common.JSONLOutput(logdir),
@@ -316,9 +322,7 @@ def main():
                 metrics_history.append(step_metrics)
 
         
-        #ADD ON: save agent weights at specific steps + adjust curr_save_idx to the right value
-        while curr_save_idx < len(SAVE_STEPS) and SAVE_STEPS[curr_save_idx] < step.value:
-            curr_save_idx += 1
+        #ADD ON: save agent weights at specific steps
 
         if curr_save_idx < len(SAVE_STEPS) and step.value >= SAVE_STEPS[curr_save_idx]:
             
