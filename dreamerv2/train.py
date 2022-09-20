@@ -60,16 +60,10 @@ def main():
     for name in parsed.configs:
         config = config.update(configs[name])
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', type=int, required=False)
-    parser.add_argument('--num_steps', type=int, required=True)
-    parser.add_argument('--logdir', type=str, required = True)
-    args = parser.parse_args(remaining)
+    if bool(config.append_seed):
+        config.update({'logdir': config.logdir+f'_{config.seed:02d}'})
 
-    config.update({'steps': args.num_steps})
-    config.update({'seed': args.seed})
-    config.update({'logdir': config.logdir+f'_{args.seed:02d}' if args.seed > 0 else args.logdir})
-    # config = common.Flags(config).parse(remaining)
+    config = common.Flags(config).parse(remaining)
 
     BATCH_REWARD_SAVE_PATH = os.path.join(config.logdir, 'batch_reward_data.csv')
     STEP_REWARD_SAVE_PATH = os.path.join(config.logdir, 'step_reward_data.csv')

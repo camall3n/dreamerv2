@@ -1,8 +1,9 @@
 defaults:
 
   # Train Script
-  logdir: ../logs/taxi_50mil_binaryhead_original_metrics
+  logdir: ../logs/test
   save_step: False
+  append_seed: False
   seed: 0
   task: taxi_env
   envs: 1
