@@ -5,3 +5,5 @@ dist
 MUJOCO_LOG.TXT
 build
 .DS_Store
+.onager
+
