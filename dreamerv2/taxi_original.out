@@ -1,9 +1,9 @@
 ## SLURM PROLOG ###############################################################
-##    Job ID : 6187973
+##    Job ID : 6188099
 ##  Job Name : dv2_monte
 ##  Nodelist : gpu2004
 ##      CPUs : 1
 ##  Mem/Node : 32768 MB
 ## Directory : /gpfs/data/tserre/ssunda11/IRL/factored_rep/factored-reps/dreamerv2/dreamerv2
-##   Job Started : Tue Sep 20 07:32:04 EDT 2022
+##   Job Started : Tue Sep 20 09:06:52 EDT 2022
 ###############################################################################

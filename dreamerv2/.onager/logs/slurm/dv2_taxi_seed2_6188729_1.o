@@ -1,0 +1,10 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 6188729
+##  Job Name : dv2_taxi_seed2
+##  Nodelist : gpu2264
+##      CPUs : 1
+##  Mem/Node : 32768 MB
+## Directory : /gpfs/data/tserre/ssunda11/IRL/factored_rep/factored-reps/dreamerv2/dreamerv2
+##   Job Started : Fri Sep 23 10:35:08 EDT 2022
+###############################################################################
+Launching worker: python3.9 train.py --configs monte --steps 1000000 --logdir ../logs/taxi_1mil_binaryhead_original_seed --save_step False --action_repeat 1 --append_seed True --seed 2
