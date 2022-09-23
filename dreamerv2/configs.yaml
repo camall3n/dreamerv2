@@ -85,7 +85,7 @@ monte:
   encoder: {mlp_keys: '$^', cnn_keys: 'image'}
   decoder: {mlp_keys: '$^', cnn_keys: 'image'}
   time_limit: 50
-  action_repeat: 4
+  action_repeat: 1 # original 4 | new 1
   steps: 1e6 #original 50mil | new 1e6
   eval_every: 5e4 # original: 2.5e5 | new 5e4
   log_every: 10e3 #original: 10k | new 10e3
@@ -100,7 +100,7 @@ monte:
   discount: 0.99
   loss_scales.kl: 0.1
   loss_scales.discount: 5.0
-  reward_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary} 
+  reward_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary}
   discount_head: {layers: 4, units: 600, act: elu, norm: none, dist: binary}
   dataset: {batch: 30, length: 25}
 
