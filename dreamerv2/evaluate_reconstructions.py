@@ -1,3 +1,4 @@
+import logging
 import functools
 import os
 import pathlib
@@ -77,7 +78,7 @@ def main():
 
     pdb.set_trace()
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_path', required=True, type=str)
+    parser.add_argument('--model_path', required=True, type=str)
 
 
     args = parser.parse_args()
@@ -85,7 +86,7 @@ def main():
     logdir = pathlib.Path(args.model_path).expanduser()
 
     #check if logdir is valid
-    if not logdir.exists() or not (logdir/'saved_models').exists() or len((logdir/'saved_models'))==0:
+    if not logdir.exists() or not (logdir/'saved_models').exists() or os.listdir((logdir/'saved_models'))==0:
         raise NotImplementedError
 
     #create reconstruction save dir
@@ -93,14 +94,14 @@ def main():
 
     #store the configs path
     config_path = logdir/'config.yaml'
-    configs = yaml.safe_load(config_path)
-    parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
+    configs = yaml.safe_load(config_path.read_text())
+    #parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
 
-    config = common.Config(configs['defaults'])
-    for name in parsed.configs:
-        config = config.update(configs[name])
+    config = common.Config(configs)
+    #for name in parsed.configs:
+    #    config = config.update(configs[name])
 
-    config = common.Flags(config).parse(remaining)
+    #config = common.Flags(config).parse(remaining)
 
 
     tf.config.run_functions_eagerly(config.jit)
@@ -141,7 +142,7 @@ def main():
 
         agnt = agent.Agent(config, obs_space, act_space, step)
         agnt.load(saved_model)
-
+	pdb.set_trace()
         traject_list = driver(random_agent, train_step)
 
         for trajectory in traject_list:
