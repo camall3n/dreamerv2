@@ -76,7 +76,7 @@ def main():
         env = common.TimeLimit(env, config.time_limit)
         return env
 
-    pdb.set_trace()
+    #pdb.set_trace()
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', required=True, type=str)
 
@@ -142,8 +142,9 @@ def main():
 
         saved_model = os.path.join(logdir/'saved_models',saved_model)
         agnt = agent.Agent(config, obs_space, act_space, step)
-        pdb.set_trace()
+        #pdb.set_trace()
         agnt.load(saved_model)
+	pdb.set_trace()
         
         traject_list = driver(random_agent, train_step)
 
