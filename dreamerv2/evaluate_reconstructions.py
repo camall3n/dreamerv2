@@ -142,7 +142,7 @@ def main():
 
         agnt = agent.Agent(config, obs_space, act_space, step)
         agnt.load(saved_model)
-	pdb.set_trace()
+        pdb.set_trace()
         traject_list = driver(random_agent, train_step)
 
         for trajectory in traject_list:
