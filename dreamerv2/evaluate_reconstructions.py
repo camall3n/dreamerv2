@@ -138,9 +138,10 @@ def main():
     driver.reset()
 
 
-    for saved_model in (logdir/'saved_models').iterdir():
+    for saved_model in os.listdir(logdir/'saved_models'):
 
-        agnt = agent.Agent(config, obs_space, act_space, step)
+        saved_model = os.path.join(lodgir/'saved_models',saved_model)
+	agnt = agent.Agent(config, obs_space, act_space, step)
         agnt.load(saved_model)
         pdb.set_trace()
         traject_list = driver(random_agent, train_step)
