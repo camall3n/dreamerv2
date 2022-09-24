@@ -1,8 +1,0 @@
-[DEFAULT]
-header = 
-footer = 
-
-[slurm]
-
-[gridengine]
-

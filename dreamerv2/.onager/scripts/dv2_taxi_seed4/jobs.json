@@ -1,1 +1,0 @@
-{"1": ["python3.9 train.py --configs monte --steps 1000000 --logdir ../logs/taxi_1mil_binaryhead_original_seed --save_step False --action_repeat 1 --append_seed True --seed 4", ""]}
