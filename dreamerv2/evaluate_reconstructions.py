@@ -140,10 +140,11 @@ def main():
 
     for saved_model in os.listdir(logdir/'saved_models'):
 
-        saved_model = os.path.join(lodgir/'saved_models',saved_model)
-	agnt = agent.Agent(config, obs_space, act_space, step)
-        agnt.load(saved_model)
+        saved_model = os.path.join(logdir/'saved_models',saved_model)
+        agnt = agent.Agent(config, obs_space, act_space, step)
         pdb.set_trace()
+        agnt.load(saved_model)
+        
         traject_list = driver(random_agent, train_step)
 
         for trajectory in traject_list:
