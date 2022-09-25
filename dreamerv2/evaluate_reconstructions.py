@@ -5,7 +5,9 @@ import pathlib
 import re
 import sys
 import warnings
-import matplotlib, PIL
+from matplotlib import pyplot as plt
+import matplotlib.image as mpimg
+import PIL
 import argparse
 import pdb
 
@@ -76,7 +78,37 @@ def main():
         env = common.TimeLimit(env, config.time_limit)
         return env
 
-    #pdb.set_trace()
+    def train_step(trajectory):
+
+        trajectory = {
+                k: np.expand_dims(np.array([convert(experience[k]) for experience in [trajectory]]),0) for k in trajectory.keys()}
+
+        return trajectory
+    
+    def reconstruction_prediction(agnt, trajectory, key):
+        
+        embed = agnt.wm.encoder(trajectory)
+        
+        states, _ = agnt.wm.rssm.observe(embed[:6, :5], trajectory['action'][:6, :5], trajectory['is_first'][:6, :5])
+
+        recon = agnt.wm.heads['decoder'](agnt.wm.rssm.get_feat(states))[key].mode()[:6]
+
+        init = {k: v[:, -1] for k, v in states.items()}
+
+        prior = agnt.wm.rssm.imagine(trajectory['action'][:6, 5:], init)
+        openl = agnt.wm.heads['decoder'](agnt.wm.rssm.get_feat(prior))[key].mode()
+
+        model_prediction = tf.concat([recon[:,:5] + 0.5, openl + 0.5], 1)
+        ground_truth = trajectory[key][:6] + 0.5
+
+        error = (model_prediction - ground_truth + 1)/2
+
+        image = tf.concat([ground_truth, model_prediction, error], 2)
+        B, T, H, W, C = image.shape
+        image.transpose((1, 2, 0, 3, 4)).reshape((T, H, B * W, C))
+
+        return model_prediction, ground_truth, error
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', required=True, type=str)
 
@@ -95,13 +127,8 @@ def main():
     #store the configs path
     config_path = logdir/'config.yaml'
     configs = yaml.safe_load(config_path.read_text())
-    #parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
 
     config = common.Config(configs)
-    #for name in parsed.configs:
-    #    config = config.update(configs[name])
-
-    #config = common.Flags(config).parse(remaining)
 
 
     tf.config.run_functions_eagerly(config.jit)
@@ -115,8 +142,7 @@ def main():
         prec.set_global_policy(prec.Policy('mixed_float16'))
     
     #setup train replay and step counter
-    train_replay = common.Replay(logdir / 'train_episodes', **config.replay)
-    step = common.Counter(train_replay.stats['total_steps'])
+    step = common.Counter(0)
 
     num_eval_envs = min(config.envs, config.eval_eps)
     if config.envs_parallel == 'none':
@@ -128,6 +154,7 @@ def main():
         train_envs = [make_async_env('train') for _ in range(config.envs)]
         eval_envs = [make_async_env('eval') for _ in range(eval_envs)]
 
+    train_replay = common.Replay(logdir / 'train_episodes', **config.replay)
 
     #creating gym environment and random agent
     act_space = train_envs[0].act_space
@@ -137,56 +164,48 @@ def main():
     driver = MiniDriver(train_envs)
     driver.reset()
 
+    #get fixed trajectory list: to test on all saved models
+    traject_list = driver(random_agent, config)
+    traject_list = [train_step(tran) for tran in traject_list]
+
+    train_dataset = iter(train_replay.dataset(**config.dataset))
 
     for saved_model in os.listdir(logdir/'saved_models'):
 
+        print('Processing model: {}'.format(saved_model))
+        
+        if '.zip' in saved_model:
+            continue
+
         saved_model = os.path.join(logdir/'saved_models',saved_model)
         agnt = agent.Agent(config, obs_space, act_space, step)
-        #pdb.set_trace()
+        train_agent = common.CarryOverState(agnt.train)
+        train_agent(next(train_dataset))
         agnt.load(saved_model)
-        pdb.set_trace()
         
-        traject_list = driver(random_agent, train_step)
 
         for trajectory in traject_list:
 
             trajectory = agnt.wm.preprocess(trajectory)
 
-            for key in agent.wm.heads['decoder'].cnn_keys:
-                name = key.replace('/', '_')
-                reconstruction_prediction(agnt, trajectory, key)
+            #change size of dimensions 0 and 1 for tensor
+            for k in trajectory.keys():
+                trajectory[k] = tf.repeat(trajectory[k], config.dataset.batch, axis=0)
+                trajectory[k] = tf.repeat(trajectory[k], config.dataset.length, axis=1)
+
+            for key in agnt.wm.heads['decoder'].cnn_keys:
+                prediction, ground_truth, error = reconstruction_prediction(agnt, trajectory, key)
+
+                fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+
+                fig.suptitle('reconstruction, ground-truth, error: {}'.format(saved_model.split('/')[-1].split('.')[0].split('_')[1]))
+                ax1.imshow(prediction[0,0,:,:,:])
+                ax2.imshow(ground_truth[0,0,:,:,:])
+                ax3.imshow(error[0,0,:,:,:])
+                plt.savefig(logdir/'reconstructions'/'{}.png'.format(saved_model.split('/')[-1].split('.')[0].split('_')[1]))
 
 
 
-    
-    def train_step(tran):
-
-        trajectory = {
-                k: np.expand_dims(np.array([convert(experience[k]) for experience in [tran]]),0) for k in tran.keys()}
-
-        return trajectory
-
-        
-
-
-    def reconstruction_prediction(agnt, trajectory, key):
-        
-        embed = agnt.wm.encoder(trajectory)
-        states, _ = agnt.wm.rssm.observe(embed, trajectory['action'], trajectory['is_first'])
-
-        recon = agnt.wm.heads['decoder'](agnt.wm.rssm.get_feat(states))[key].mode()
-        init = {k: v[:, -1] for k, v in states.items()}
-
-        prior = agnt.wm.rssm.imagine(trajectory['action'], init)
-        openl = agnt.wm.heads['decoder'](agnt.wm.rssm.get_feat(prior))[key].mode()
-
-        model_prediction = tf.concat([recon + 0.5, openl + 0.5], 1)
-        ground_truth = trajectory[key] + 0.5
-
-        error = (model_prediction - ground_truth + 1)/2
-        image = tf.concat([ground_truth, model_prediction, error], 2)
-        B, T, H, W, C = image.shape
-        image.transpose((1, 2, 0, 3, 4)).reshape((T, H, B * W, C))
 
 
     
@@ -205,7 +224,7 @@ class MiniDriver:
     self._obs = [None] * len(self._envs)
     self._state = None
 
-  def __call__(self, policy, train_step):
+  def __call__(self, policy, config):
     
     obs = {i: self._envs[i].reset() for i, ob in enumerate(self._obs) if ob is None or ob['is_last']}
       
@@ -231,8 +250,7 @@ class MiniDriver:
     for i, (act, ob) in enumerate(zip(actions, obs)):
         
         tran = {k: self._convert(v) for k, v in {**ob, **act}.items()}
-        traj = train_step(tran)
-        traj_list.append(traj)
+        traj_list.append(tran)
         
         
     self._obs = obs

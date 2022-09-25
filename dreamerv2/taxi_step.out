@@ -1,9 +1,9 @@
 ## SLURM PROLOG ###############################################################
-##    Job ID : 6190266
+##    Job ID : 6190267
 ##  Job Name : dv2_taxi_step
-##  Nodelist : gpu1202
+##  Nodelist : gpu1204
 ##      CPUs : 1
 ##  Mem/Node : 33792 MB
 ## Directory : /gpfs/data/tserre/ssunda11/IRL/factored_rep/factored-reps/dreamerv2/dreamerv2
-##   Job Started : Thu Sep 22 10:35:16 EDT 2022
+##   Job Started : Sat Sep 24 10:35:50 EDT 2022
 ###############################################################################

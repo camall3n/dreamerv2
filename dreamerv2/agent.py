@@ -225,6 +225,7 @@ class WorldModel(common.Module):
 
   @tf.function
   def video_pred(self, data, key):
+    
     decoder = self.heads['decoder']
     truth = data[key][:6] + 0.5
     embed = self.encoder(data)
