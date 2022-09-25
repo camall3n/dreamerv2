@@ -119,7 +119,7 @@ def main():
 
     #check if logdir is valid
     if not logdir.exists() or not (logdir/'saved_models').exists() or os.listdir((logdir/'saved_models'))==0:
-        raise NotImplementedError
+        raise RuntimeError(f'Models not found in {logdir} or [...]/saved_models')
 
     #create reconstruction save dir
     (logdir/'reconstructions').mkdir(parents=True, exist_ok=True)
