@@ -7,4 +7,5 @@ build
 .DS_Store
 .onager
 saved_models
+logs/
 
