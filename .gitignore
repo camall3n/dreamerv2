@@ -6,4 +6,6 @@ MUJOCO_LOG.TXT
 build
 .DS_Store
 .onager
+saved_models
+logs/
 

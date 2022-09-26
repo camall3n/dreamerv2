@@ -119,7 +119,7 @@ def main():
 
     #check if logdir is valid
     if not logdir.exists() or not (logdir/'saved_models').exists() or os.listdir((logdir/'saved_models'))==0:
-        raise NotImplementedError
+        raise RuntimeError(f'Models not found in {logdir} or [...]/saved_models')
 
     #create reconstruction save dir
     (logdir/'reconstructions').mkdir(parents=True, exist_ok=True)
@@ -132,8 +132,8 @@ def main():
 
 
     tf.config.run_functions_eagerly(config.jit)
-    message = 'No GPU found. To actually train on CPU remove this assert.'
-    assert tf.config.experimental.list_physical_devices('GPU'), message
+    if tf.config.experimental.list_physical_devices('GPU') == []:
+        warnings.warn('No GPU found. Using CPU, but things might be slow!')
     for gpu in tf.config.experimental.list_physical_devices('GPU'):
         tf.config.experimental.set_memory_growth(gpu, True)
     assert config.precision in (16, 32), config.precision
