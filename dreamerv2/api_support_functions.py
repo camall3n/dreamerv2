@@ -4,6 +4,7 @@ import pathlib
 import sys
 import warnings
 
+import pdb
 from matplotlib import pyplot as plt
 import ruamel.yaml as yaml
 import tensorflow as tf
@@ -11,7 +12,7 @@ from tensorflow import keras
 
 from dreamerv2 import common
 from dreamerv2.agent import Agent
-from dreamerv2.train import make_env
+from train import make_env
 
 try:
     import rich.traceback
@@ -25,6 +26,7 @@ warnings.filterwarnings('ignore', '.*box bound precision lowered.*')
 
 sys.path.append(str(pathlib.Path(__file__).parent))
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
+
 
 def setup_log_and_config(exp_path):
     logdir = pathlib.Path(exp_path).expanduser()
@@ -80,8 +82,21 @@ class DV2API:
         self.policy = common.RandomAgent(act_space)
         self.state = None
 
-    def dreamerv2_encoder(self, observation_dict):
+        self.obs_keys = {'reward':0.0,'is_last':False,'is_terminal':False,'is_timeout':False,'is_first':True}
+        
+
+    def dreamerv2_encoder(self, obs):
         # TODO: change observation_dict input to observation
+        #construct observation dict from 'obs'
+        observation_dict = {}
+
+        observation_dict['image'] = obs
+
+        for k in self.obs_keys.keys():
+            observation_dict[k] = self.obs_keys[k]
+        
+        observation_dict['action'] = [1.0, 0.0, 0.0, 0.0, 0.0]
+        
 
         #change size of dimensions 0 and 1 for tensor
         for k in observation_dict.keys():
@@ -95,68 +110,47 @@ class DV2API:
                                             axis=1)
 
             # TODO: try to get masking working (if we need to keep the [:6, :5] shapes)
-            # mask = np.zeros(shape=observation_dict[k].shape)
-
-            # if k is 'image':
-            #     mask[0,0,:,:,:] = 1
-            #     mask = tf.Variable(mask, dtype=tf.float64)
-            # elif k is 'reward':
-            #     mask[0] = 1
-            #     mask = tf.Variable(mask, dtype= tf.float32)
-
-            # if k is not 'is_terminal':
-            #     observation_dict[k] = tf.multiply(observation_dict[k], mask)
 
         # TODO: Hard code action = 0, is_first = True, is_last = False
 
         #execute the random agent policy and store action
-        action, self.state = self.policy(observation_dict, self.state)
+        #action, self.state = self.policy(observation_dict, self.state)
 
-        observation_dict['action'] = tf.repeat(tf.expand_dims(action['action'], axis=1),
-                                               self.config.dataset.length,
-                                               axis=1)
+        #observation_dict['action'] = tf.repeat(tf.expand_dims(action['action'], axis=1), self.config.dataset.length, axis=1)
 
         observation_dict = self.agnt.wm.preprocess(observation_dict)
 
         embed = self.agnt.wm.encoder(observation_dict)
 
         # TODO: check if we can do length-1 trajectories (Priority)
-        states, _ = self.agnt.wm.rssm.observe(embed[:6, :5], observation_dict['action'][:6, :5],
-                                              observation_dict['is_first'][:6, :5])
+        states, _ = self.agnt.wm.rssm.observe(embed[:1, :1], observation_dict['action'][:1, :1],
+                                              observation_dict['is_first'][:1, :1])
 
         features = self.agnt.wm.rssm.get_feat(states)
 
         return features
 
-    def dreamerv2_reconstruction(self, features, observation_dict):
+    def dreamerv2_reconstruction(self, features):
         # TODO: reconstruction uses features only, no observation_dict
         reconstructions = []
-        ground_truths = []
 
         for key in self.agnt.wm.heads['decoder'].cnn_keys:
-            recon = self.agnt.wm.heads['decoder'](features)[key].mode()[:6]
+            recon = self.agnt.wm.heads['decoder'](features)[key].mode()[:1]
 
-            model_prediction = tf.cast(recon[:, :5] + 0.5, dtype=tf.float64)
-            ground_truth = observation_dict[key][:6] + 0.5
+            model_prediction = tf.cast(recon[:, :1] + 0.5, dtype=tf.float64)
 
             reconstructions.append(model_prediction[0, 0, :, :, :])
-            ground_truths.append(ground_truth[0, 0, :, :, :])
 
-        return reconstructions[0], ground_truths[0]
+        return reconstructions[0]
 
     def dreamerv2_error(self, reconstructions, ground_truths):
-        # errors = []
-        # for (recon, ground) in zip(reconstructions, ground_truths):
-        #     error = (recon - ground + 1)/2
-        #     errors.append(error)
-
         errors = (reconstructions - ground_truths + 1) / 2
         return errors
 
 def test_api():
     logdir, config = setup_log_and_config('../logs/taxi_1mil_binaryhead_original_seed_01')
     env = make_env(config)
-    dv2_api = DV2API(logdir, 'variables_step10001.pkl', config, env.obs_space, env.act_space)
+    dv2_api = DV2API(logdir, 'variables_step750000.pkl', config, env.obs_space, env.act_space)
     obs = env.reset()
 
     print('Image Shape: ', obs['image'].shape)
@@ -168,23 +162,17 @@ def test_api():
     plt.cla()
     plt.clf()
 
-    features = dv2_api.dreamerv2_encoder(obs)
+    features = dv2_api.dreamerv2_encoder(obs['image'])
     print('Encoded Features Shape: ', features.shape)
 
-    reconstruction, ground_truth = dv2_api.dreamerv2_reconstruction(features, obs)
+    reconstruction = dv2_api.dreamerv2_reconstruction(features)
     print('Reconstructions Shape: ', reconstruction.shape)
-    print('Ground Truth Shape: ', ground_truth.shape)
 
-    error = dv2_api.dreamerv2_error(reconstruction, ground_truth)
+    error = dv2_api.dreamerv2_error(reconstruction, obs['image'])
     print('Error Shape: ', error.shape)
 
     plt.imshow(reconstruction)
     plt.savefig('./api_test_results/test_reconstruction.png')
-    plt.cla()
-    plt.clf()
-
-    plt.imshow(ground_truth)
-    plt.savefig('./api_test_results/test_ground_truth.png')
     plt.cla()
     plt.clf()
 
