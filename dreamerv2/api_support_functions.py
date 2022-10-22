@@ -10,9 +10,13 @@ import ruamel.yaml as yaml
 import tensorflow as tf
 from tensorflow import keras
 
+sys.path.append(str(pathlib.Path(__file__).parent))
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
+sys.path.append('../dreamerv2')
+
 from dreamerv2 import common
 from dreamerv2.agent import Agent
-from train import make_env
+from dreamerv2.train import make_env
 
 try:
     import rich.traceback
@@ -26,7 +30,6 @@ warnings.filterwarnings('ignore', '.*box bound precision lowered.*')
 
 sys.path.append(str(pathlib.Path(__file__).parent))
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
-
 
 def setup_log_and_config(exp_path):
     logdir = pathlib.Path(exp_path).expanduser()
