@@ -37,12 +37,12 @@ def setup_log_and_config(exp_path):
     #check if logdir is valid
     if not logdir.exists() or not (logdir / 'saved_models').exists() or len(
             os.listdir((logdir / 'saved_models'))) == 0:
-        raise NotImplementedError
+        raise RuntimeError(f'Models not found in {logdir} or [...]/saved_models')
 
     #check if logdir/train_episodes has reference episodes to setup model
     if not (logdir / 'train_episodes').exists() or len(os.listdir(
         (logdir / 'train_episodes'))) == 0:
-        raise NotImplementedError
+        raise RuntimeError(f'Models not found in {logdir} or [...]/saved_models')
 
     #store the configs path
     config_path = logdir / 'config.yaml'
@@ -88,8 +88,8 @@ class DV2API:
         self.obs_keys = {'reward':0.0,'is_last':False,'is_terminal':False,'is_timeout':False,'is_first':True}
         
 
-    def dreamerv2_encoder(self, obs):
-        # TODO: change observation_dict input to observation
+    def encode(self, obs):
+        
         #construct observation dict from 'obs'
         observation_dict = {}
 
@@ -112,10 +112,6 @@ class DV2API:
                                             self.config.dataset.length,
                                             axis=1)
 
-            # TODO: try to get masking working (if we need to keep the [:6, :5] shapes)
-
-        # TODO: Hard code action = 0, is_first = True, is_last = False
-
         #execute the random agent policy and store action
         #action, self.state = self.policy(observation_dict, self.state)
 
@@ -125,7 +121,6 @@ class DV2API:
 
         embed = self.agnt.wm.encoder(observation_dict)
 
-        # TODO: check if we can do length-1 trajectories (Priority)
         states, _ = self.agnt.wm.rssm.observe(embed[:1, :1], observation_dict['action'][:1, :1],
                                               observation_dict['is_first'][:1, :1])
 
@@ -133,8 +128,8 @@ class DV2API:
 
         return features
 
-    def dreamerv2_reconstruction(self, features):
-        # TODO: reconstruction uses features only, no observation_dict
+    def decode(self, features):
+
         reconstructions = []
 
         for key in self.agnt.wm.heads['decoder'].cnn_keys:
