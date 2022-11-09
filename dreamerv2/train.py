@@ -1,18 +1,22 @@
 import collections
 import functools
-import json
 import logging
 import os
 import pathlib
 import re
 import sys
 import warnings
-import pandas as pd
-import argparse
 
+import numpy as np
+import ruamel.yaml as yaml
+import pandas as pd
+from tensorflow import keras
+
+from visgrid.envs import TaxiEnv
 from visgrid.wrappers.transforms import NoiseWrapper, ClipWrapper, TransformWrapper
-from gym.wrappers.time_limit import TimeLimit
+from dreamerv2 import common
 from dreamerv2.common.replay import convert
+from dreamerv2.agent import Agent
 
 try:
     import rich.traceback
@@ -27,19 +31,11 @@ warnings.filterwarnings('ignore', '.*box bound precision lowered.*')
 sys.path.append(str(pathlib.Path(__file__).parent))
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
-import numpy as np
-import ruamel.yaml as yaml
-from tensorflow import keras
-
 # import tensorflow as tf
 # tf.config.run_functions_eagerly(True)
 # tf.debugging.experimental.enable_dump_debug_info("/tmp/tfdbg2_logdir",
 #                                                  tensor_debug_mode="FULL_HEALTH",
 #                                                  circular_buffer_size=-1)
-
-import agent
-import common
-import pdb
 
 #ADDON: reward tracker variable: to be populated CSV file tracking per-step metrics
 reward_tracker = None
@@ -51,9 +47,45 @@ AGENT_SAVE_PATH = None
 SAVE_STEPS = [1, 50000, 100000, 200000, 500000, 750000, 1000000]
 curr_save_idx = 0
 
+def make_env(config, mode=None):
+    suite, task = config.task.split('_', 1)
+    if suite == 'dmc':
+        env = common.DMC(task, config.action_repeat, config.render_size, config.dmc_camera)
+        env = common.NormalizeAction(env)
+    elif suite == 'atari':
+        env = common.Atari(task, config.action_repeat, config.render_size, config.atari_grayscale)
+        env = common.OneHotAction(env)
+    # elif suite == 'crafter':
+    #     assert config.action_repeat == 1
+    #     outdir = logdir / 'crafter' if mode == 'train' else None
+    #     reward = bool(['noreward', 'reward'].index(task)) or mode == 'eval'
+    #     env = common.Crafter(outdir, reward)
+    #     env = common.OneHotAction(env)
+    elif suite == 'taxi':
+        env = TaxiEnv(size=5,
+                      n_passengers=1,
+                      exploring_starts=True,
+                      terminate_on_goal=True,
+                      fixed_goal=False,
+                      depot_dropoff_only=True,
+                      should_render=True,
+                      dimensions=TaxiEnv.dimensions_5x5_to_64x64)
+        env = NoiseWrapper(env, sigma=0.01)
+        env = ClipWrapper(env, 0.0, 1.0)
+        env = TransformWrapper(env, lambda x: x - 0.5)
+        env = common.GymWrapper(env)
+        env = common.ResizeImage(env)
+
+        if hasattr(env.act_space['action'], 'n'):
+            env = common.OneHotAction(env)
+        else:
+            env = common.NormalizeAction(env)
+    else:
+        raise NotImplementedError(suite)
+    env = common.TimeLimit(env, config.time_limit)
+    return env
 
 def main():
-
     configs = yaml.safe_load((pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
     parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
 
@@ -64,8 +96,8 @@ def main():
     config = common.Flags(config).parse(remaining)
 
     if bool(config.append_seed):
-        config = config.update({'logdir': config.logdir+f'_{config.seed:02d}'})
-    
+        config = config.update({'logdir': config.logdir + f'_{config.seed:02d}'})
+
     BATCH_REWARD_SAVE_PATH = os.path.join(config.logdir, 'batch_reward_data.csv')
     STEP_REWARD_SAVE_PATH = os.path.join(config.logdir, 'step_reward_data.csv')
 
@@ -75,33 +107,35 @@ def main():
     global AGENT_SAVE_PATH
     global SAVE_STEPS
     global curr_save_idx
-    
 
-    AGENT_SAVE_PATH = pathlib.Path(config.logdir)/'saved_models'
-
+    AGENT_SAVE_PATH = pathlib.Path(config.logdir) / 'saved_models'
 
     if os.path.exists(BATCH_REWARD_SAVE_PATH):
         reward_tracker = pd.read_csv(BATCH_REWARD_SAVE_PATH)
     else:
-        reward_tracker = pd.DataFrame(columns = ['actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean', 'pred_discount_mode', 'pred_discount_mean','taxi_row', 'taxi_col', 'p_row', 'p_col','in_taxi'])
-    
+        reward_tracker = pd.DataFrame(columns=[
+            'actual_reward', 'is_timeout', 'pred_reward_mode', 'pred_reward_mean',
+            'pred_discount_mode', 'pred_discount_mean', 'taxi_row', 'taxi_col', 'p_row', 'p_col',
+            'in_taxi'
+        ])
+
     if os.path.exists(STEP_REWARD_SAVE_PATH):
         step_reward_tracker = pd.read_csv(STEP_REWARD_SAVE_PATH)
         resume_step = step_reward_tracker.iloc[-1]['single_step']
 
     else:
-        step_reward_tracker = pd.DataFrame(columns = ['single_step',
-            'single_actual_reward', 'single_actual_terminal', 'single_actual_timeout','single_pred_reward_mean','single_pred_reward_mode','single_pred_discount_mean',
-            'single_pred_discount_mode',
-            'taxi_row','taxi_col','p_row','p_col','in_taxi'])
+        step_reward_tracker = pd.DataFrame(columns=[
+            'single_step', 'single_actual_reward', 'single_actual_terminal',
+            'single_actual_timeout', 'single_pred_reward_mean', 'single_pred_reward_mode',
+            'single_pred_discount_mean', 'single_pred_discount_mode', 'taxi_row', 'taxi_col',
+            'p_row', 'p_col', 'in_taxi'
+        ])
         resume_step = 0
-        
-
 
     logdir = pathlib.Path(config.logdir).expanduser()
     logdir.mkdir(parents=True, exist_ok=True)
     AGENT_SAVE_PATH.mkdir(parents=True, exist_ok=True)
-    
+
     config.save(logdir / 'config.yaml')
     print(config, '\n')
     print('Logdir', logdir)
@@ -153,54 +187,13 @@ def main():
     should_video_eval = common.Every(config.eval_every)
     should_expl = common.Until(config.expl_until // config.action_repeat)
 
-    def make_env(mode):
-        suite, task = config.task.split('_', 1)
-        if suite == 'dmc':
-            env = common.DMC(task, config.action_repeat, config.render_size, config.dmc_camera)
-            env = common.NormalizeAction(env)
-        elif suite == 'atari':
-            env = common.Atari(task, config.action_repeat, config.render_size,
-                               config.atari_grayscale)
-            env = common.OneHotAction(env)
-        elif suite == 'crafter':
-            assert config.action_repeat == 1
-            outdir = logdir / 'crafter' if mode == 'train' else None
-            reward = bool(['noreward', 'reward'].index(task)) or mode == 'eval'
-            env = common.Crafter(outdir, reward)
-            env = common.OneHotAction(env)
-        elif suite == 'taxi':
-
-            from visgrid.envs import TaxiEnv
-            env = TaxiEnv(size=5,
-                          n_passengers=1,
-                          exploring_starts=True,
-                          terminate_on_goal=True,
-                          fixed_goal=False,
-                          depot_dropoff_only=True,
-                          should_render=True,
-                          dimensions=TaxiEnv.dimensions_5x5_to_64x64)
-            env = NoiseWrapper(env, sigma=0.01)
-            env = ClipWrapper(env, 0.0, 1.0)
-            env = TransformWrapper(env, lambda x: x - 0.5)
-            env = common.GymWrapper(env)
-            env = common.ResizeImage(env)
-
-            if hasattr(env.act_space['action'], 'n'):
-                env = common.OneHotAction(env)
-            else:
-                env = common.NormalizeAction(env)
-        else:
-            raise NotImplementedError(suite)
-        env = common.TimeLimit(env, config.time_limit)
-        return env
-
     def per_episode(ep, mode):
         length = len(ep['reward']) - 1
         score = float(ep['reward'].astype(np.float64).sum())
         print(f'{mode.title()} episode has {length} steps and return {score:.1f}.')
         logger.scalar(f'{mode}_return', score)
         logger.scalar(f'{mode}_length', length)
-        
+
         for key, value in ep.items():
             if re.match(config.log_keys_sum, key):
                 logger.scalar(f'sum_{mode}_{key}', ep[key].sum())
@@ -220,13 +213,13 @@ def main():
     print('Create envs.')
     num_eval_envs = min(config.envs, config.eval_eps)
     if config.envs_parallel == 'none':
-        train_envs = [make_env('train') for _ in range(config.envs)]
-        eval_envs = [make_env('eval') for _ in range(num_eval_envs)]
+        train_envs = [make_env(config, 'train') for _ in range(config.envs)]
+        eval_envs = [make_env(config, 'eval') for _ in range(num_eval_envs)]
     else:
-        make_async_env = lambda mode: common.Async(functools.partial(make_env, mode), config.
-                                                   envs_parallel)
-        train_envs = [make_async_env('train') for _ in range(config.envs)]
-        eval_envs = [make_async_env('eval') for _ in range(eval_envs)]
+        make_async_env = lambda config, mode: common.Async(
+            functools.partial(make_env, config, mode), config.envs_parallel)
+        train_envs = [make_async_env(config, 'train') for _ in range(config.envs)]
+        eval_envs = [make_async_env(config, 'eval') for _ in range(eval_envs)]
     act_space = train_envs[0].act_space
     obs_space = train_envs[0].obs_space
     train_driver = common.Driver(train_envs)
@@ -238,7 +231,6 @@ def main():
     eval_driver.on_episode(lambda ep: per_episode(ep, mode='eval'))
     eval_driver.on_episode(eval_replay.add_episode)
 
-    
     prefill = max(0, config.prefill - train_replay.stats['total_steps'])
     if prefill:
         print(f'Prefill dataset ({prefill} steps).')
@@ -248,12 +240,11 @@ def main():
         train_driver.reset()
         eval_driver.reset()
 
-    
     print('Create agent.')
     train_dataset = iter(train_replay.dataset(**config.dataset))
     report_dataset = iter(train_replay.dataset(**config.dataset))
     eval_dataset = iter(eval_replay.dataset(**config.dataset))
-    agnt = agent.Agent(config, obs_space, act_space, step)
+    agnt = Agent(config, obs_space, act_space, step)
     train_agent = common.CarryOverState(agnt.train)
     train_agent(next(train_dataset))
     if (logdir / 'variables.pkl').exists():
@@ -270,7 +261,7 @@ def main():
     metrics_history = []
 
     def train_step(tran, worker):
-               
+
         global step_reward_tracker
         global resume_step
         global AGENT_SAVE_PATH
@@ -278,17 +269,17 @@ def main():
         global SAVE_STEPS
         global curr_save_idx
 
-
         if bool(config.save_step):
-	
+
             recent_history.append(tran)
 
             if len(recent_history) > config.dataset.length:
                 recent_history.pop(0)
 
             trajectory = {
-                k: np.expand_dims(np.array([convert(experience[k]) for experience in recent_history]),
-                                0)
+                k:
+                np.expand_dims(np.array([convert(experience[k]) for experience in recent_history]),
+                               0)
                 for k in tran.keys()
             }
 
@@ -322,15 +313,13 @@ def main():
             if step.value > resume_step:
                 metrics_history.append(step_metrics)
 
-        
         #ADD ON: save agent weights at specific steps
 
         if curr_save_idx < len(SAVE_STEPS) and step.value >= SAVE_STEPS[curr_save_idx]:
-            
-            agnt.save( AGENT_SAVE_PATH/'variables_step{}.pkl'.format(step.value) ) 
-            curr_save_idx += 1 
 
-        
+            agnt.save(AGENT_SAVE_PATH / 'variables_step{}.pkl'.format(step.value))
+            curr_save_idx += 1
+
         if should_train(step):
             for _ in range(config.train_steps):
                 mets, mets_rolled = train_agent(next(train_dataset))
@@ -341,17 +330,15 @@ def main():
 
         if should_log(step):
 
-
             for name, values in metrics_rolled.items():
 
                 metrics_rolled[name].clear()
 
-
             #appending to the step-wise metrics dataframe
             if bool(config.save_step):
-                step_reward_tracker = step_reward_tracker.append(metrics_history, ignore_index = True)
+                step_reward_tracker = step_reward_tracker.append(metrics_history,
+                                                                 ignore_index=True)
                 step_reward_tracker.to_csv(STEP_REWARD_SAVE_PATH, index=False)
-            
 
                 metrics_history.clear()
 
@@ -374,7 +361,7 @@ def main():
         print('Start training.')
 
         train_driver(train_policy, steps=config.eval_every)
-        
+
         agnt.save(logdir / 'variables.pkl')
 
         print('Saving reward')

@@ -8,4 +8,5 @@ build
 .onager
 saved_models
 logs/
-
+api_test_results/
+.vscode
